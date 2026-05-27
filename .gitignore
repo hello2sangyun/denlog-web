@@ -1,0 +1,38 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+
+# Next.js
+/.next/
+/out/
+/dist/
+/build/
+
+# env
+.env.local
+.env*.local
+
+# OS
+.DS_Store
+*.DS_Store
+**/.DS_Store
+
+# Electron/asar
+asar_extracted/
+
+# Scratch/debug scripts
+check_*.js
+check_*.ts
+fetch_*.js
+download_*.js
+main-test.js
+make_icon.mjs
+make_logo.mjs
+
+# Misc
+*.log
