@@ -7,10 +7,12 @@
     "build": "NODE_OPTIONS='--max-old-space-size=4096' next build",
     "start": "next start",
     "lint": "eslint",
-    "build:app": "npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --win"
+    "build:app": "npm run build && electron-builder --mac --win"
   },
   "dependencies": {
-    "electron-serve": "^3.0.1"
+    "electron-log": "^5.4.4",
+    "electron-serve": "^3.0.1",
+    "electron-updater": "^6.3.9"
   },
   "devDependencies": {
     "@base-ui/react": "^1.5.0",
@@ -66,6 +68,13 @@
       "main.js",
       "preload.js",
       "package.json"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "hello2sangyun",
+        "repo": "denlog"
+      }
     ]
   }
 }

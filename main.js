@@ -2,6 +2,11 @@ const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const serve = require('electron-serve').default || require('electron-serve');
 const path = require('path');
 const http = require('http');
+const { autoUpdater } = require('electron-updater');
+
+// Configure autoUpdater logging
+autoUpdater.logger = require('electron-log');
+autoUpdater.logger.transports.file.level = 'info';
 
 ipcMain.on('open-external', (event, url) => {
   shell.openExternal(url);
@@ -24,8 +29,6 @@ function createWindow() {
   // Bypass Google's disallowed_useragent for Electron
   mainWindow.webContents.userAgent = mainWindow.webContents.userAgent.replace(/Electron\/[\d.]+ /, '').replace(/Denlog Desktop\/[\d.]+ /, '').replace(/denlog-web\/[\d.]+ /, '');
 
-  // mainWindow.webContents.openDevTools();
-  
   mainWindow.webContents.on('console-message', (...args) => {
     console.log(`BROWSER CONSOLE ARGS:`, args);
   });
@@ -42,7 +45,6 @@ function createWindow() {
   loadURL(mainWindow);
 }
 
-// Start a local HTTP server on port 3000 to catch Supabase OAuth redirects
 const server = http.createServer((req, res) => {
   if (req.url === '/' || req.url.startsWith('/?')) {
     res.writeHead(200, { 'Content-Type': 'text/html' });
@@ -51,8 +53,6 @@ const server = http.createServer((req, res) => {
         <body>
           <p>Login successful! Returning to app...</p>
           <script>
-            // The browser doesn't send the URL hash (#) to the server.
-            // We read it here on the client side and send it to our local server.
             const url = 'http://localhost:3000/callback' + window.location.search + (window.location.search ? '&' : '?') + 'hash=' + encodeURIComponent(window.location.hash);
             fetch(url).then(() => {
               window.close();
@@ -73,8 +73,6 @@ const server = http.createServer((req, res) => {
     
     const mainWindow = BrowserWindow.getAllWindows()[0];
     if (mainWindow) {
-      // We append a dummy timestamp to the query string to FORCE Electron to perform a full page reload
-      // rather than just a hash change. This ensures the React app and Supabase client re-initialize.
       const separator = urlObj.search ? '&' : '?';
       const dummyQuery = separator + '_ts=' + Date.now();
       const newUrl = 'app://-/' + urlObj.search + dummyQuery + hashParam;
@@ -98,6 +96,9 @@ server.listen(3000, '127.0.0.1', () => {
 app.whenReady().then(() => {
   createWindow();
 
+  // Check for updates
+  autoUpdater.checkForUpdatesAndNotify();
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
@@ -109,4 +110,16 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+// Auto-updater events
+autoUpdater.on('update-available', (info) => {
+  console.log('Update available.', info);
+});
+autoUpdater.on('update-downloaded', (info) => {
+  console.log('Update downloaded.', info);
+  // Auto-updater automatically prompts the user to restart
+});
+autoUpdater.on('error', (err) => {
+  console.log('Error in auto-updater.', err);
 });
