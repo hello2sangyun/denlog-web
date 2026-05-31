@@ -17,6 +17,7 @@ import { SettingsDialog } from '@/components/SettingsDialog';
 import { VoiceRecordingOverlay } from '@/components/VoiceRecordingOverlay';
 import { LoginOverlay } from '@/components/LoginOverlay';
 import { AiReviewBanner } from '@/components/AiReviewBanner';
+import EventPopupModal from '@/components/EventPopupModal';
 import { Bell, Search, Settings, LayoutList, KanbanSquare, Mic, Sun, Moon, Menu, X, Folder } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -476,6 +477,7 @@ export default function Home() {
       <SettingsDialog />
       <VoiceRecordingOverlay />
       {(!user && !isLoading) && <LoginOverlay />}
+      <EventPopupModal />
       </div>
     </DragDropContext>
   );
