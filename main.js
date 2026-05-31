@@ -112,13 +112,26 @@ app.on('window-all-closed', () => {
   }
 });
 
-// Auto-updater events
+const { dialog } = require('electron'); // make sure to import dialog at top or just use require('electron').dialog
+
 autoUpdater.on('update-available', (info) => {
   console.log('Update available.', info);
 });
 autoUpdater.on('update-downloaded', (info) => {
   console.log('Update downloaded.', info);
-  // Auto-updater automatically prompts the user to restart
+  const dialogOpts = {
+    type: 'info',
+    buttons: ['Restart', 'Later'],
+    title: 'Application Update',
+    message: info.version ? `Version ${info.version} is available` : 'A new version is available',
+    detail: 'A new version has been downloaded. Restart the application to apply the updates.'
+  };
+
+  require('electron').dialog.showMessageBox(dialogOpts).then((returnValue) => {
+    if (returnValue.response === 0) {
+      autoUpdater.quitAndInstall();
+    }
+  });
 });
 autoUpdater.on('error', (err) => {
   console.log('Error in auto-updater.', err);
