@@ -64,7 +64,7 @@ export default function Home() {
   }, [currentView]);
 
   const [rightSidebarWidth, setRightSidebarWidth] = React.useState(540);
-  const [leftSidebarWidth, setLeftSidebarWidth] = React.useState(220);
+  const [leftSidebarWidth, setLeftSidebarWidth] = React.useState(253);
   const [isLeftDragging, setIsLeftDragging] = React.useState(false);
 
   const handleMouseDown = React.useCallback((e: React.MouseEvent) => {
