@@ -64,6 +64,8 @@ export default function Home() {
   }, [currentView]);
 
   const [rightSidebarWidth, setRightSidebarWidth] = React.useState(540);
+  const [leftSidebarWidth, setLeftSidebarWidth] = React.useState(220);
+  const [isLeftDragging, setIsLeftDragging] = React.useState(false);
 
   const handleMouseDown = React.useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -85,6 +87,29 @@ export default function Home() {
     document.addEventListener('mouseup', handleMouseUp);
     document.body.style.cursor = 'col-resize';
   }, [rightSidebarWidth]);
+
+  const handleLeftMouseDown = React.useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = leftSidebarWidth;
+    setIsLeftDragging(true);
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const delta = moveEvent.clientX - startX;
+      setLeftSidebarWidth(Math.min(Math.max(startWidth + delta, 180), 400));
+    };
+
+    const handleMouseUp = () => {
+      setIsLeftDragging(false);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'default';
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'col-resize';
+  }, [leftSidebarWidth]);
 
   React.useEffect(() => {
     loadData();
@@ -221,13 +246,23 @@ export default function Home() {
 
         {/* ── Left Sidebar: full / collapsed / hidden ── */}
         {!sidebarHidden && (
-          <Sidebar
-            collapsed={sidebarCollapsed}
-            className={cn(
-              "flex-shrink-0 border-r transition-all duration-300",
-              sidebarCollapsed ? "w-[56px]" : "w-[200px] xl:w-[220px]"
+          <>
+            <Sidebar
+              collapsed={sidebarCollapsed}
+              style={!sidebarCollapsed ? { width: `${leftSidebarWidth}px` } : undefined}
+              className={cn(
+                "flex-shrink-0 border-r",
+                !isLeftDragging && "transition-all duration-300",
+                sidebarCollapsed && "w-[56px]"
+              )}
+            />
+            {!sidebarCollapsed && (
+              <div
+                className="w-1 cursor-col-resize hover:bg-primary/50 transition-colors bg-transparent shrink-0 z-30"
+                onMouseDown={handleLeftMouseDown}
+              />
             )}
-          />
+          </>
         )}
 
       <main className="flex-1 min-w-0 flex flex-col relative" style={{ minWidth: 340 }}>
