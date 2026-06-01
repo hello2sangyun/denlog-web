@@ -55,7 +55,6 @@ export function KanbanBoard({ customTodos }: { customTodos?: Todo[] }) {
 
   const columns: { id: string; title: string; color: string; items: Todo[] }[] = isUpcoming 
     ? [
-        { id: 'today', title: t('nav.today'), color: 'bg-primary', items: [] },
         { id: 'tomorrow', title: t('filter.tomorrow'), color: 'bg-green-500', items: [] },
         { id: 'thisWeek', title: t('filter.thisWeek'), color: 'bg-blue-500', items: [] },
         { id: 'nextWeek', title: t('filter.nextWeek'), color: 'bg-purple-500', items: [] },
@@ -77,11 +76,13 @@ export function KanbanBoard({ customTodos }: { customTodos?: Todo[] }) {
     if (isUpcoming) {
       if (todo.dueDate) {
         const due = startOfDay(todo.dueDate);
-        if (isBefore(due, tomorrow)) columns[0].items.push(todo);
-        else if (isSameDay(due, tomorrow)) columns[1].items.push(todo);
-        else if (isAfter(due, tomorrow) && !isAfter(due, endOfThisWeek)) columns[2].items.push(todo);
-        else if (isAfter(due, endOfThisWeek) && !isAfter(due, endOfNextWk)) columns[3].items.push(todo);
-        else if (isAfter(due, endOfNextWk)) columns[4].items.push(todo);
+        if (isBefore(due, tomorrow)) {
+          // Skip today and overdue tasks in upcoming view (they belong in Today view)
+        }
+        else if (isSameDay(due, tomorrow)) columns[0].items.push(todo);
+        else if (isAfter(due, tomorrow) && !isAfter(due, endOfThisWeek)) columns[1].items.push(todo);
+        else if (isAfter(due, endOfThisWeek) && !isAfter(due, endOfNextWk)) columns[2].items.push(todo);
+        else if (isAfter(due, endOfNextWk)) columns[3].items.push(todo);
       }
     } else {
       if (todo.priority === 'high') columns[0].items.push(todo);
