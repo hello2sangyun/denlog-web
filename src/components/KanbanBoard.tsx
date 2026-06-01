@@ -152,9 +152,9 @@ export function KanbanBoard({ customTodos }: { customTodos?: Todo[] }) {
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     if (!todo.isCompleted) {
-                                      updateTodo(todo.id, { isCompleted: true, completedAt: new Date().toISOString() });
+                                      updateTodo(todo.id, { isCompleted: true });
                                     } else {
-                                      updateTodo(todo.id, { isCompleted: false, completedAt: undefined });
+                                      updateTodo(todo.id, { isCompleted: false });
                                     }
                                   }}
                                   className={cn(
