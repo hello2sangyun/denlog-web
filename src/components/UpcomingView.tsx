@@ -39,7 +39,7 @@ export function UpcomingView() {
       const pB = pMap[b.priority || 'none'] ?? 3;
       if (pA !== pB) return pA - pB;
     }
-    return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
   });
 
   const tomorrowTodos = upcomingTodos.filter(t => t.dueDate && isSameDay(startOfDay(t.dueDate), tomorrow));
