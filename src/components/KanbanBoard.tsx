@@ -11,7 +11,7 @@ import type { Todo } from '../types';
 import { useTranslation } from '@/lib/i18n';
 
 export function KanbanBoard({ customTodos }: { customTodos?: Todo[] }) {
-  const { todos: storeTodos, currentView, searchQuery, selectedTodoId, setSelectedTodo } = useStore();
+  const { todos: storeTodos, currentView, searchQuery, selectedTodoId, setSelectedTodo, updateTodo } = useStore();
 
   const baseTodos = customTodos || storeTodos;
 
@@ -151,6 +151,11 @@ export function KanbanBoard({ customTodos }: { customTodos?: Todo[] }) {
                                 <button 
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    if (!todo.isCompleted) {
+                                      updateTodo(todo.id, { isCompleted: true, completedAt: new Date().toISOString() });
+                                    } else {
+                                      updateTodo(todo.id, { isCompleted: false, completedAt: undefined });
+                                    }
                                   }}
                                   className={cn(
                                     "mt-0.5 w-[20px] h-[20px] rounded-full border-[1.5px] flex-shrink-0 transition-all duration-200 flex items-center justify-center",
