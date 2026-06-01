@@ -57,7 +57,7 @@ export function Sidebar({ className, collapsed = false, ...props }: SidebarProps
   return (
     <div
       className={cn(
-        "pb-12 h-full flex flex-col border-r border-border/40 bg-muted transition-all duration-300",
+        "pb-12 h-full flex flex-col border-r border-border/40 bg-muted",
         className
       )}
       {...props}

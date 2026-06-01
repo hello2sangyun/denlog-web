@@ -18,8 +18,8 @@ export function TodoList({ customTodos }: { customTodos?: Todo[] }) {
   const baseTodos = customTodos || storeTodos;
 
   const filteredTodos = baseTodos.filter(todo => {
-    // Hide tasks that are waiting for AI Review from standard lists
-    if (todo.aiDeckPending) {
+    // Hide tasks that are waiting for AI Review or were dismissed
+    if (todo.aiDeckPending || todo.aiDeckDismissedAt) {
       return false;
     }
 
