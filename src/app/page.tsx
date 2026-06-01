@@ -258,7 +258,7 @@ export default function Home() {
             />
             {!sidebarCollapsed && (
               <div
-                className="w-1 cursor-col-resize hover:bg-primary/50 transition-colors bg-transparent shrink-0 z-30"
+                className="w-1.5 cursor-col-resize hover:bg-primary/50 transition-colors bg-border/40 shrink-0 z-30"
                 onMouseDown={handleLeftMouseDown}
               />
             )}
@@ -337,47 +337,49 @@ export default function Home() {
             })()}
           </div>
           
-          <div className="flex items-center gap-3">
-            <div className="relative" ref={notifRef}>
-              <Button 
-                variant="ghost"  
-                size="icon" 
-                onClick={() => setIsNotifOpen(!isNotifOpen)}
-                className="relative rounded-full hover:bg-muted"
-              >
-                <Bell className="h-[18px] w-[18px] stroke-[2] text-muted-foreground" />
-                {unreadCount > 0 && (
-                  <span className="absolute top-0 right-0 inline-flex items-center justify-center min-w-[16px] h-[16px] text-[9px] font-bold text-white bg-[#D3411A] rounded-full px-1 ring-2 ring-background transform translate-x-1/4 -translate-y-1/4">
-                    {unreadCount}
-                  </span>
+          {!(selectedTodoId || selectedRecordingId || activeChatUser) && (
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="relative" ref={notifRef}>
+                <Button 
+                  variant="ghost"  
+                  size="icon" 
+                  onClick={() => setIsNotifOpen(!isNotifOpen)}
+                  className="relative rounded-full hover:bg-muted"
+                >
+                  <Bell className="h-[18px] w-[18px] stroke-[2] text-muted-foreground" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-0 right-0 inline-flex items-center justify-center min-w-[16px] h-[16px] text-[9px] font-bold text-white bg-[#D3411A] rounded-full px-1 ring-2 ring-background transform translate-x-1/4 -translate-y-1/4">
+                      {unreadCount}
+                    </span>
+                  )}
+                </Button>
+                {isNotifOpen && (
+                  <NotificationPanel onClose={() => setIsNotifOpen(false)} anchorRef={notifRef} />
                 )}
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                className="rounded-full hover:bg-muted"
+              >
+                <Sun className="h-[18px] w-[18px] hidden dark:block stroke-[2] text-muted-foreground" />
+                <Moon className="h-[18px] w-[18px] block dark:hidden stroke-[2] text-[#586069]" />
               </Button>
-              {isNotifOpen && (
-                <NotificationPanel onClose={() => setIsNotifOpen(false)} anchorRef={notifRef} />
-              )}
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => useStore.getState().setIsSettingsOpen(true)}
+                className="rounded-full hover:bg-muted"
+              >
+                <Settings className="h-[18px] w-[18px] stroke-[2] text-muted-foreground" />
+              </Button>
+              <Avatar className="h-8 w-8 ring-2 ring-border cursor-pointer hover:ring-primary transition-all">
+                <AvatarImage src={user?.avatarUrl || `https://api.dicebear.com/7.x/notionists/svg?seed=${user?.id || 'dummy'}`} />
+                <AvatarFallback>{user?.displayName?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+              </Avatar>
             </div>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="rounded-full hover:bg-muted"
-            >
-              <Sun className="h-[18px] w-[18px] hidden dark:block stroke-[2] text-muted-foreground" />
-              <Moon className="h-[18px] w-[18px] block dark:hidden stroke-[2] text-[#586069]" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={() => useStore.getState().setIsSettingsOpen(true)}
-              className="rounded-full hover:bg-muted"
-            >
-              <Settings className="h-[18px] w-[18px] stroke-[2] text-muted-foreground" />
-            </Button>
-            <Avatar className="h-8 w-8 ring-2 ring-border cursor-pointer hover:ring-primary transition-all">
-              <AvatarImage src={user?.avatarUrl || `https://api.dicebear.com/7.x/notionists/svg?seed=${user?.id || 'dummy'}`} />
-              <AvatarFallback>{user?.displayName?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
-            </Avatar>
-          </div>
+          )}
         </header>
         <AiReviewBanner />
         <div className={cn("flex-1 overflow-hidden bg-card flex flex-col relative", isShaking && "animate-shake")}>
