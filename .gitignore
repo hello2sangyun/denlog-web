@@ -36,3 +36,4 @@ make_logo.mjs
 
 # Misc
 *.log
+.vercel

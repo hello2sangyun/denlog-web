@@ -470,6 +470,7 @@ export const useStore = create<AppState>((set, get) => ({
       if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
       if (updates.attachments !== undefined) dbUpdates.attachments = updates.attachments;
       if (updates.aiDeckPending !== undefined) dbUpdates.ai_deck_pending = updates.aiDeckPending;
+      if (updates.aiDeckDismissedAt !== undefined) dbUpdates.ai_deck_dismissed_at = updates.aiDeckDismissedAt;
       if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate ? updates.dueDate.toISOString() : null;
       if (updates.dueTime !== undefined || updates.dueDate !== undefined) {
         // Find existing or updated dueDate/dueTime
@@ -841,7 +842,7 @@ export const useStore = create<AppState>((set, get) => ({
             dueTime: t.due_time, hasReminder: t.has_reminder, priority: t.priority,
             folderId: t.folder_id, assigneeIds: t.assignee_ids || [], viewerIds: t.viewer_ids || [],
             tags: t.tags || [], isCompleted: t.is_completed, completedAt: t.completed_at ? new Date(t.completed_at) : null,
-            aiConfidenceLow: t.ai_confidence_low, aiDeckPending: t.ai_deck_pending,
+            aiConfidenceLow: t.ai_confidence_low, aiDeckPending: t.ai_deck_pending, aiDeckDismissedAt: t.ai_deck_dismissed_at,
             createdAt: new Date(t.created_at), updatedAt: new Date(t.updated_at)
           };
           set(state => ({ todos: [newTodo, ...state.todos.filter(x => x.id !== t.id)] }));
@@ -862,6 +863,7 @@ export const useStore = create<AppState>((set, get) => ({
               completedAt: t.completed_at ? new Date(t.completed_at) : null,
               aiConfidenceLow: t.ai_confidence_low,
               aiDeckPending: t.ai_deck_pending,
+              aiDeckDismissedAt: t.ai_deck_dismissed_at,
               sourceExcerpt: t.source_excerpt,
               updatedAt: new Date(t.updated_at),
             } : todo)
@@ -1097,6 +1099,7 @@ export const useStore = create<AppState>((set, get) => ({
           completedAt: t.completed_at ? new Date(t.completed_at) : null,
           aiConfidenceLow: t.ai_confidence_low,
           aiDeckPending: t.ai_deck_pending,
+          aiDeckDismissedAt: t.ai_deck_dismissed_at,
           createdAt: new Date(t.created_at),
           updatedAt: new Date(t.updated_at),
         }));

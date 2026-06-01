@@ -1,0 +1,13 @@
+
+  <html><body>
+  <script>
+    setTimeout(() => {
+      try {
+        console.log("Navigating...");
+        window.location.assign('https://google.com');
+      } catch (e) {
+        console.error("DOM ERROR:", e);
+      }
+    }, 1000);
+  </script>
+  </body></html>

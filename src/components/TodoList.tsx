@@ -231,12 +231,13 @@ export function TodoList({ customTodos }: { customTodos?: Todo[] }) {
                         <div className="flex -space-x-1.5 mt-3">
                           {participants.slice(0, 3).map((pId, idx) => {
                             const user = usersMap[pId];
-                            const initial = user?.name ? user.name[0] : pId.substring(0, 2).toUpperCase();
+                            const initial = user?.name ? user.name[0].toUpperCase() : pId.substring(0, 2).toUpperCase();
                             const zClass = idx === 0 ? 'z-30' : idx === 1 ? 'z-20' : 'z-10';
+                            const avatarUrl = user?.avatarUrl || undefined;
                             return (
-                              <Avatar key={pId} className={cn("h-6 w-6 ring-2 ring-background", zClass)}>
-                                <AvatarImage src={user?.avatarUrl || `https://api.dicebear.com/7.x/notionists/svg?seed=${pId}`} />
-                                <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-medium">{initial}</AvatarFallback>
+                              <Avatar key={pId} className={cn("h-6 w-6 ring-2 ring-background bg-primary/10", zClass)}>
+                                {avatarUrl && <AvatarImage src={avatarUrl} />}
+                                <AvatarFallback className="text-[10px] text-primary font-bold">{initial}</AvatarFallback>
                               </Avatar>
                             );
                           })}

@@ -9,8 +9,10 @@ import { isToday, format, isAfter, startOfDay, addDays, isSameDay, endOfWeek, is
 import { CalendarClock, AlertCircle } from 'lucide-react';
 import type { Todo } from '../types';
 import { useTranslation } from '@/lib/i18n';
+import { Check } from 'lucide-react';
 
 export function KanbanBoard({ customTodos }: { customTodos?: Todo[] }) {
+  const [animatingIds, setAnimatingIds] = React.useState<string[]>([]);
   const { todos: storeTodos, currentView, searchQuery, selectedTodoId, setSelectedTodo, updateTodo, usersMap, todoSort } = useStore();
 
   const baseTodos = customTodos || storeTodos;
@@ -143,7 +145,9 @@ export function KanbanBoard({ customTodos }: { customTodos?: Todo[] }) {
                       
                       return (
                         <Draggable key={todo.id} draggableId={todo.id} index={index}>
-                          {(provided, snapshot) => (
+                          {(provided, snapshot) => {
+                            const isVisuallyCompleted = todo.isCompleted || animatingIds.includes(todo.id);
+                            return (
                             <div 
                               ref={provided.innerRef}
                               {...provided.draggableProps}
@@ -161,20 +165,26 @@ export function KanbanBoard({ customTodos }: { customTodos?: Todo[] }) {
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     if (!todo.isCompleted) {
-                                      updateTodo(todo.id, { isCompleted: true });
+                                      setAnimatingIds(prev => [...prev, todo.id]);
+                                      setTimeout(() => {
+                                        updateTodo(todo.id, { isCompleted: true });
+                                        setAnimatingIds(prev => prev.filter(id => id !== todo.id));
+                                      }, 400);
                                     } else {
                                       updateTodo(todo.id, { isCompleted: false });
                                     }
                                   }}
                                   className={cn(
                                     "mt-0.5 w-[20px] h-[20px] rounded-full border-[1.5px] flex-shrink-0 transition-all duration-200 flex items-center justify-center",
-                                    todo.isCompleted ? "bg-primary border-primary scale-95" : 
+                                    isVisuallyCompleted ? "bg-primary border-primary" : 
                                     hasRedHighlight ? "border-primary" : "border-muted-foreground/40",
                                     "hover:bg-primary/10 hover:border-primary/60"
                                   )}
-                                />
+                                >
+                                  {isVisuallyCompleted && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                                </button>
                                 <div className="flex flex-col min-w-0 flex-1">
-                                  <span className={cn("text-sm font-medium leading-snug mb-1", todo.isCompleted && "line-through text-muted-foreground")}>
+                                  <span className={cn("text-sm font-medium leading-snug mb-1", isVisuallyCompleted && "line-through text-muted-foreground")}>
                                     {todo.title}
                                   </span>
                                   
@@ -197,12 +207,12 @@ export function KanbanBoard({ customTodos }: { customTodos?: Todo[] }) {
                                           <div className="flex -space-x-1.5">
                                             {participants.slice(0, 3).map((pId, idx) => {
                                               const u = usersMap[pId];
-                                              const avatarUrl = u?.avatarUrl || `https://api.dicebear.com/7.x/notionists/svg?seed=${pId}`;
-                                              const fallback = u?.name?.charAt(0)?.toUpperCase() || 'U';
+                                              const avatarUrl = u?.avatarUrl || undefined;
+                                              const fallback = u?.name?.charAt(0)?.toUpperCase() || pId.substring(0, 2).toUpperCase();
                                               return (
-                                                <Avatar key={pId} className={cn("h-4 w-4 ring-1 ring-background", `z-[${10-idx}]`)}>
-                                                  <AvatarImage src={avatarUrl} />
-                                                  <AvatarFallback className="text-[6px]">{fallback}</AvatarFallback>
+                                                <Avatar key={pId} className={cn("h-4 w-4 ring-1 ring-background bg-primary/10", `z-[${10-idx}]`)}>
+                                                  {avatarUrl && <AvatarImage src={avatarUrl} />}
+                                                  <AvatarFallback className="text-[6px] font-bold text-primary">{fallback}</AvatarFallback>
                                                 </Avatar>
                                               );
                                             })}
@@ -223,7 +233,8 @@ export function KanbanBoard({ customTodos }: { customTodos?: Todo[] }) {
                                 </div>
                               </div>
                             </div>
-                          )}
+                            );
+                          }}
                         </Draggable>
                       );
                     })}
