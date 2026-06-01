@@ -1,0 +1,6 @@
+dist
+out
+build
+asar_extracted
+node_modules
+.next

@@ -330,16 +330,18 @@ export default function Home() {
             </div>
 
             {/* Search */}
-            <div className="relative ml-auto hidden md:block w-64 mr-2">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search tasks..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full bg-muted/40 border border-border/40 pl-9 focus-visible:ring-1 focus-visible:ring-primary focus-visible:bg-background h-9 rounded-full text-sm transition-colors"
-              />
-            </div>
+            {!selectedTodoId && (
+              <div className="relative ml-auto hidden md:block w-64 mr-2">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search tasks..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="w-full bg-muted/40 border border-border/40 pl-9 focus-visible:ring-1 focus-visible:ring-primary focus-visible:bg-background h-9 rounded-full text-sm transition-colors"
+                />
+              </div>
+            )}
 
             {(() => {
               const currentFolder = folders.find(f => f.id === currentView);
