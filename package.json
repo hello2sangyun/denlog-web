@@ -1,13 +1,13 @@
 {
   "name": "denlog-web",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "scripts": {
     "dev": "NODE_OPTIONS='--max-old-space-size=4096' next dev --webpack",
     "build": "NODE_OPTIONS='--max-old-space-size=4096' next build",
     "start": "next start",
     "lint": "eslint",
-    "build:app": "npm run build && electron-builder --mac --universal --win"
+    "build:app": "npm run build && electron-builder --mac --win"
   },
   "dependencies": {
     "electron-log": "^5.4.4",
@@ -47,8 +47,14 @@
     "productName": "Denlog Desktop",
     "mac": {
       "target": [
-        "dir",
-        "zip"
+        {
+          "target": "dir",
+          "arch": ["universal"]
+        },
+        {
+          "target": "zip",
+          "arch": ["universal"]
+        }
       ],
       "icon": "build/icon.png",
       "hardenedRuntime": true
