@@ -11,7 +11,7 @@ import type { Todo } from '../types';
 import { useTranslation } from '@/lib/i18n';
 
 export function KanbanBoard({ customTodos }: { customTodos?: Todo[] }) {
-  const { todos: storeTodos, currentView, searchQuery, selectedTodoId, setSelectedTodo, updateTodo, users } = useStore();
+  const { todos: storeTodos, currentView, searchQuery, selectedTodoId, setSelectedTodo, updateTodo, usersMap } = useStore();
 
   const baseTodos = customTodos || storeTodos;
 
@@ -187,9 +187,9 @@ export function KanbanBoard({ customTodos }: { customTodos?: Todo[] }) {
                                         return (
                                           <div className="flex -space-x-1.5">
                                             {participants.slice(0, 3).map((pId, idx) => {
-                                              const u = users.find(u => u.id === pId);
+                                              const u = usersMap[pId];
                                               const avatarUrl = u?.avatarUrl || `https://api.dicebear.com/7.x/notionists/svg?seed=${pId}`;
-                                              const fallback = u?.displayName?.charAt(0)?.toUpperCase() || 'U';
+                                              const fallback = u?.name?.charAt(0)?.toUpperCase() || 'U';
                                               return (
                                                 <Avatar key={pId} className={cn("h-4 w-4 ring-1 ring-background", `z-[${10-idx}]`)}>
                                                   <AvatarImage src={avatarUrl} />
