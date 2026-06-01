@@ -13,13 +13,18 @@ import { Check } from 'lucide-react';
 
 export function KanbanBoard({ customTodos }: { customTodos?: Todo[] }) {
   const [animatingIds, setAnimatingIds] = React.useState<string[]>([]);
-  const { todos: storeTodos, currentView, searchQuery, selectedTodoId, setSelectedTodo, updateTodo, usersMap, todoSort } = useStore();
+  const { todos: storeTodos, folders, currentView, searchQuery, selectedTodoId, setSelectedTodo, updateTodo, usersMap, todoSort } = useStore();
 
   const baseTodos = customTodos || storeTodos;
 
   const filteredTodos = baseTodos.filter(todo => {
     // Hide tasks that are waiting for AI Review or were dismissed
     if (todo.aiDeckPending || todo.aiDeckDismissedAt) {
+      return false;
+    }
+    
+    // Hide orphaned tasks (tasks that belong to a folder that no longer exists)
+    if (todo.folderId && todo.folderId !== 'inbox' && todo.folderId !== 'none' && !folders.some(f => f.id === todo.folderId)) {
       return false;
     }
 

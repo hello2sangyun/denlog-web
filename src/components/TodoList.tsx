@@ -11,7 +11,7 @@ import { Droppable, Draggable } from '@hello-pangea/dnd';
 import type { Todo } from '../types';
 
 export function TodoList({ customTodos }: { customTodos?: Todo[] }) {
-  const { todos: storeTodos, selectedTodoId, setSelectedTodo, currentView, searchQuery, usersMap, updateTodo, selectedTodoIds, toggleTodoSelection, unreadCommentCounts, todoSort } = useStore();
+  const { todos: storeTodos, folders, selectedTodoId, setSelectedTodo, currentView, searchQuery, usersMap, updateTodo, selectedTodoIds, toggleTodoSelection, unreadCommentCounts, todoSort } = useStore();
   const { t } = useTranslation();
   const [animatingIds, setAnimatingIds] = React.useState<string[]>([]);
 
@@ -20,6 +20,11 @@ export function TodoList({ customTodos }: { customTodos?: Todo[] }) {
   const filteredTodos = baseTodos.filter(todo => {
     // Hide tasks that are waiting for AI Review or were dismissed
     if (todo.aiDeckPending || todo.aiDeckDismissedAt) {
+      return false;
+    }
+    
+    // Hide orphaned tasks (tasks that belong to a folder that no longer exists)
+    if (todo.folderId && todo.folderId !== 'inbox' && todo.folderId !== 'none' && !folders.some(f => f.id === todo.folderId)) {
       return false;
     }
 

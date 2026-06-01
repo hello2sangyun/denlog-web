@@ -417,12 +417,35 @@ export const useStore = create<AppState>((set, get) => ({
   clearRecordingSelection: () => set({ selectedRecordingIds: [] }),
   
   deleteTodos: async (ids) => {
+    const userId = get().user?.id;
+    const todos = get().todos;
+    
+    const ownedIds: string[] = [];
+    const sharedIds: string[] = [];
+    
+    ids.forEach(id => {
+      const t = todos.find(x => x.id === id);
+      if (!t || t.userId === userId) {
+        ownedIds.push(id);
+      } else {
+        sharedIds.push(id);
+      }
+    });
+
     set(state => ({ 
       todos: state.todos.filter(t => !ids.includes(t.id)), 
       selectedTodoIds: [] 
     }));
-    const { error } = await supabase.from('todos').delete().in('id', ids);
-    if (error) console.error('Error deleting todos', error);
+
+    if (ownedIds.length > 0) {
+      const { error } = await supabase.from('todos').delete().in('id', ownedIds);
+      if (error) console.error('Error deleting todos', error);
+    }
+    
+    for (const id of sharedIds) {
+      const { error } = await supabase.rpc('leave_todo', { p_todo_id: id });
+      if (error) console.error('Error leaving todo', error);
+    }
   },
 
   completeTodos: async (ids, isCompleted) => {
