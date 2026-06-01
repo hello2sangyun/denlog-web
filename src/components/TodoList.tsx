@@ -11,7 +11,7 @@ import { Droppable, Draggable } from '@hello-pangea/dnd';
 import type { Todo } from '../types';
 
 export function TodoList({ customTodos }: { customTodos?: Todo[] }) {
-  const { todos: storeTodos, selectedTodoId, setSelectedTodo, currentView, searchQuery, usersMap, updateTodo, selectedTodoIds, toggleTodoSelection, unreadCommentCounts } = useStore();
+  const { todos: storeTodos, selectedTodoId, setSelectedTodo, currentView, searchQuery, usersMap, updateTodo, selectedTodoIds, toggleTodoSelection, unreadCommentCounts, todoSort } = useStore();
   const { t } = useTranslation();
   const [animatingIds, setAnimatingIds] = React.useState<string[]>([]);
 
@@ -48,6 +48,22 @@ export function TodoList({ customTodos }: { customTodos?: Todo[] }) {
       (todo.memo?.toLowerCase().includes(searchLower));
 
     return matchesView && matchesSearch;
+  });
+
+  filteredTodos.sort((a, b) => {
+    if (todoSort === 'dueDate') {
+      if (!a.dueDate) return 1;
+      if (!b.dueDate) return -1;
+      return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+    }
+    if (todoSort === 'priority') {
+      const pMap: Record<string, number> = { high: 0, medium: 1, low: 2, none: 3 };
+      const pA = pMap[a.priority || 'none'] ?? 3;
+      const pB = pMap[b.priority || 'none'] ?? 3;
+      if (pA !== pB) return pA - pB;
+    }
+    // Default
+    return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
   });
 
   return (

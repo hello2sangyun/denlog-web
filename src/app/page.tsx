@@ -18,7 +18,7 @@ import { VoiceRecordingOverlay } from '@/components/VoiceRecordingOverlay';
 import { LoginOverlay } from '@/components/LoginOverlay';
 import { AiReviewBanner } from '@/components/AiReviewBanner';
 import EventPopupModal from '@/components/EventPopupModal';
-import { Bell, Search, Settings, LayoutList, KanbanSquare, Mic, Sun, Moon, Menu, X, Folder } from 'lucide-react';
+import { Bell, Search, Settings, LayoutList, KanbanSquare, Mic, Sun, Moon, Menu, X, Folder, ArrowDownUp, Check } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,7 +44,7 @@ function useWindowWidth() {
 }
 
 export default function Home() {
-  const { user, isLoading, isInitialLoadCompleted, currentView, searchQuery, setSearchQuery, folders, viewMode, setViewMode, loadData, notifications, selectedTodoId, selectedRecordingId, activeChatUser, selectedTodoIds, clearTodoSelection, deleteTodos, completeTodos, updateTodo, markNotificationRead, markAllNotificationsRead } = useStore();
+  const { user, isLoading, isInitialLoadCompleted, currentView, searchQuery, setSearchQuery, folders, viewMode, setViewMode, todoSort, setTodoSort, loadData, notifications, selectedTodoId, selectedRecordingId, activeChatUser, selectedTodoIds, clearTodoSelection, deleteTodos, completeTodos, updateTodo, markNotificationRead, markAllNotificationsRead } = useStore();
   const { theme, setTheme } = useTheme();
   const [isNotifOpen, setIsNotifOpen] = React.useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
@@ -284,24 +284,48 @@ export default function Home() {
               <span className="text-xs md:text-sm text-muted-foreground font-medium leading-none hidden sm:inline-block">{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
             </div>
             
-            {/* View Mode Toggle */}
-            <div className="hidden md:flex items-center bg-muted/80 p-1 rounded-lg border border-border/50 ml-4">
-              <Button 
-                variant="ghost"
-                size="sm" 
-                onClick={() => setViewMode('list')}
-                className={cn("h-8 px-4 text-sm font-semibold rounded-md transition-all", viewMode === 'list' ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-transparent")}
-              >
-                <LayoutList className="w-4 h-4 mr-2 stroke-[2]" /> List
-              </Button>
-              <Button 
-                variant="ghost"
-                size="sm" 
-                onClick={() => setViewMode('board')}
-                className={cn("h-8 px-4 text-sm font-semibold rounded-md transition-all", viewMode === 'board' ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-transparent")}
-              >
-                <KanbanSquare className="w-4 h-4 mr-2 stroke-[2]" /> Board
-              </Button>
+            {/* View Mode & Sort Toggle */}
+            <div className="hidden md:flex items-center bg-muted/80 p-1 rounded-lg border border-border/50 ml-4 gap-1">
+              <div className="flex items-center">
+                <Button 
+                  variant="ghost"
+                  size="sm" 
+                  onClick={() => setViewMode('list')}
+                  className={cn("h-8 px-4 text-sm font-semibold rounded-md transition-all", viewMode === 'list' ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-transparent")}
+                >
+                  <LayoutList className="w-4 h-4 mr-2 stroke-[2]" /> List
+                </Button>
+                <Button 
+                  variant="ghost"
+                  size="sm" 
+                  onClick={() => setViewMode('board')}
+                  className={cn("h-8 px-4 text-sm font-semibold rounded-md transition-all", viewMode === 'board' ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-transparent")}
+                >
+                  <KanbanSquare className="w-4 h-4 mr-2 stroke-[2]" /> Board
+                </Button>
+              </div>
+
+              <div className="w-px h-4 bg-border mx-1" />
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 px-3 text-sm font-semibold text-muted-foreground hover:text-foreground">
+                    <ArrowDownUp className="w-4 h-4 mr-2" />
+                    {t('todo.sort') || 'Sort'}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40">
+                  <DropdownMenuItem onClick={() => setTodoSort('default')} className="justify-between">
+                    {t('todo.sortDefault') || 'Default'} {todoSort === 'default' && <Check className="w-4 h-4" />}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setTodoSort('dueDate')} className="justify-between">
+                    {t('todo.sortDueDate') || 'By Due Date'} {todoSort === 'dueDate' && <Check className="w-4 h-4" />}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setTodoSort('priority')} className="justify-between">
+                    {t('todo.sortPriority') || 'By Priority'} {todoSort === 'priority' && <Check className="w-4 h-4" />}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             {/* Search */}

@@ -11,7 +11,7 @@ import type { Todo } from '../types';
 import { useTranslation } from '@/lib/i18n';
 
 export function KanbanBoard({ customTodos }: { customTodos?: Todo[] }) {
-  const { todos: storeTodos, currentView, searchQuery, selectedTodoId, setSelectedTodo, updateTodo, usersMap } = useStore();
+  const { todos: storeTodos, currentView, searchQuery, selectedTodoId, setSelectedTodo, updateTodo, usersMap, todoSort } = useStore();
 
   const baseTodos = customTodos || storeTodos;
 
@@ -92,15 +92,23 @@ export function KanbanBoard({ customTodos }: { customTodos?: Todo[] }) {
     }
   });
 
-  // Sort upcoming columns by due date
-  if (isUpcoming) {
-    columns.forEach(col => {
-      col.items.sort((a, b) => {
-        if (!a.dueDate || !b.dueDate) return 0;
-        return a.dueDate.getTime() - b.dueDate.getTime();
-      });
+  // Sort columns based on todoSort
+  columns.forEach(col => {
+    col.items.sort((a, b) => {
+      if (todoSort === 'dueDate') {
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+      }
+      if (todoSort === 'priority') {
+        const pMap: Record<string, number> = { high: 0, medium: 1, low: 2, none: 3 };
+        const pA = pMap[a.priority || 'none'] ?? 3;
+        const pB = pMap[b.priority || 'none'] ?? 3;
+        if (pA !== pB) return pA - pB;
+      }
+      return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
     });
-  }
+  });
 
   // Remove empty columns if desired, but standard Kanban keeps them.
   // We will keep them.

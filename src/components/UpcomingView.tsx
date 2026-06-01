@@ -11,7 +11,7 @@ import { Droppable, Draggable } from '@hello-pangea/dnd';
 import type { Todo } from '../types';
 
 export function UpcomingView() {
-  const { todos, updateTodo, selectedTodoId, setSelectedTodo, selectedTodoIds, toggleTodoSelection, usersMap } = useStore();
+  const { todos, updateTodo, selectedTodoId, setSelectedTodo, selectedTodoIds, toggleTodoSelection, usersMap, todoSort } = useStore();
   const { t } = useTranslation();
 
   const now = startOfDay(new Date());
@@ -26,10 +26,20 @@ export function UpcomingView() {
     isAfter(startOfDay(t.dueDate), now)
   );
   
-  // Sort by due date
+  // Sort based on todoSort
   upcomingTodos.sort((a, b) => {
-    if (!a.dueDate || !b.dueDate) return 0;
-    return a.dueDate.getTime() - b.dueDate.getTime();
+    if (todoSort === 'dueDate') {
+      if (!a.dueDate) return 1;
+      if (!b.dueDate) return -1;
+      return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+    }
+    if (todoSort === 'priority') {
+      const pMap: Record<string, number> = { high: 0, medium: 1, low: 2, none: 3 };
+      const pA = pMap[a.priority || 'none'] ?? 3;
+      const pB = pMap[b.priority || 'none'] ?? 3;
+      if (pA !== pB) return pA - pB;
+    }
+    return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
   });
 
   const tomorrowTodos = upcomingTodos.filter(t => t.dueDate && isSameDay(startOfDay(t.dueDate), tomorrow));

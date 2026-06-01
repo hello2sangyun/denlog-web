@@ -44,6 +44,7 @@ interface AppState {
   selectedTodoIds: string[];
   selectedRecordingId: string | null;
   searchQuery: string;
+  todoSort: 'default' | 'dueDate' | 'priority';
   currentView: ViewType;
   viewingDeckTodoId: string | null;
   viewMode: 'list' | 'board';
@@ -70,7 +71,8 @@ interface AppState {
   moveTodos: (ids: string[], folderId: string | null) => Promise<void>;
   setSelectedRecording: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
-  setCurrentView: (view: string) => void;
+  setTodoSort: (sort: 'default' | 'dueDate' | 'priority') => void;
+  setCurrentView: (view: ViewType) => void;
   setViewingDeckTodo: (id: string | null) => void;
   setViewMode: (mode: 'list' | 'board') => void;
   setIsSettingsOpen: (isOpen: boolean) => void;
@@ -148,6 +150,7 @@ export const useStore = create<AppState>((set, get) => ({
   selectedRecordingId: null,
   selectedRecordingIds: [],
   searchQuery: '',
+  todoSort: 'default',
   currentView: 'all',
   viewingDeckTodoId: null,
   viewMode: 'list',
@@ -203,6 +206,7 @@ export const useStore = create<AppState>((set, get) => ({
     }
   }),
   setSearchQuery: (query) => set({ searchQuery: query }),
+  setTodoSort: (sort) => set({ todoSort: sort }),
   setCurrentView: (view) => set({ currentView: view }),
   setViewingDeckTodo: (id) => set({ viewingDeckTodoId: id }),
   setViewMode: (mode) => set({ viewMode: mode }),
