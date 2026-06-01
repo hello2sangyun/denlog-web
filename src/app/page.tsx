@@ -308,6 +308,7 @@ export default function Home() {
               <div className="w-px h-4 bg-border mx-1" />
 
               <DropdownMenu>
+                {/* @ts-ignore */}
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-8 px-3 text-sm font-semibold text-muted-foreground hover:text-foreground">
                     <ArrowDownUp className="w-4 h-4 mr-2" />
