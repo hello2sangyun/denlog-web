@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { useTranslation } from '@/lib/i18n';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
-import { Inbox, Calendar, Archive, Folder, Plus, Trash2, CalendarDays, Users, Video, ChevronDown, ChevronRight, CheckCircle, Layers } from 'lucide-react';
+import { Inbox, Calendar, Archive, Folder, Plus, Trash2, CalendarDays, Users, Video, ChevronDown, ChevronRight, CheckCircle, Layers, FolderKanban, FolderOpen } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { useStore } from '../store/useStore';
 import { Droppable } from '@hello-pangea/dnd';
@@ -23,11 +23,13 @@ interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 export function Sidebar({ className, collapsed = false, ...props }: SidebarProps) {
-  const { currentView, setCurrentView, folders, todos, loadData, createFolder, deleteFolder } = useStore();
+  const { currentView, setCurrentView, folders, todos, loadData, createFolder, deleteFolder, updateFolder } = useStore();
   const { t } = useTranslation();
   const [isAddingFolder, setIsAddingFolder] = React.useState(false);
   const [newFolderName, setNewFolderName] = React.useState('');
   const [isFoldersExpanded, setIsFoldersExpanded] = React.useState(true);
+  // 우클릭 컨텍스트 메뉴 상태
+  const [ctxMenu, setCtxMenu] = React.useState<{ x: number; y: number; folderId: string } | null>(null);
 
   useEffect(() => {
     loadData();
@@ -55,6 +57,7 @@ export function Sidebar({ className, collapsed = false, ...props }: SidebarProps
   };
 
   return (
+    <>
     <div
       className={cn(
         "pb-12 h-full flex flex-col border-r border-border/40 bg-muted",
@@ -225,6 +228,10 @@ export function Sidebar({ className, collapsed = false, ...props }: SidebarProps
                               <Button
                                 variant="ghost"
                                 onClick={() => setCurrentView(folder.id)}
+                                onContextMenu={(e) => {
+                                  e.preventDefault();
+                                  setCtxMenu({ x: e.clientX, y: e.clientY, folderId: folder.id });
+                                }}
                                 className={cn(
                                   "w-full justify-start transition-colors group px-4 h-9 hover:bg-muted/50 rounded-lg",
                                   isActive ? "font-bold text-foreground" : "font-medium text-muted-foreground hover:text-foreground"
@@ -234,7 +241,10 @@ export function Sidebar({ className, collapsed = false, ...props }: SidebarProps
                                   className={cn("mr-4 h-4 w-4 stroke-[2]", !folder.color && (isActive ? "text-foreground" : "text-muted-foreground"))}
                                   style={folder.color ? { color: folder.color } : undefined}
                                 />
-                                <span className="text-[13px]">{folder.name}</span>
+                                <span className="text-[13px] truncate">{folder.name}</span>
+                                {folder.workspaceType === 'project' && (
+                                  <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-indigo-500/15 text-indigo-400 shrink-0 ml-1">🗂</span>
+                                )}
                                 {(() => {
                                   const liveCount = todos.filter(t => t.folderId === folder.id && !t.isCompleted).length;
                                   return liveCount > 0 ? (
@@ -265,5 +275,74 @@ export function Sidebar({ className, collapsed = false, ...props }: SidebarProps
         </div>
       </div>
     </div>
+
+      {ctxMenu && (() => {
+        const f = folders.find(f => f.id === ctxMenu.folderId);
+        if (!f) return null;
+        const isProject = f.workspaceType === 'project';
+        return (
+          <>
+            {/* 배경 클릭 시 닫기 */}
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setCtxMenu(null)}
+              onContextMenu={(e) => { e.preventDefault(); setCtxMenu(null); }}
+            />
+            <div
+              className="fixed z-50 min-w-[180px] bg-popover border border-border rounded-lg shadow-xl py-1 overflow-hidden"
+              style={{ top: ctxMenu.y, left: ctxMenu.x }}
+            >
+              {/* 폴더 이름 헤더 */}
+              <div className="px-3 py-1.5 border-b border-border/50 mb-1">
+                <p className="text-[11px] font-bold text-foreground truncate">{f.name}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {isProject ? '🗂 프로젝트 폴더' : '📁 개인 폴더'}
+                </p>
+              </div>
+
+              {/* 프로젝트 전환 / 개인 전환 */}
+              {isProject ? (
+                <button
+                  className="w-full text-left flex items-center gap-2 px-3 py-2 text-[12px] hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    updateFolder(f.id, { workspaceType: 'personal' });
+                    setCtxMenu(null);
+                  }}
+                >
+                  <FolderOpen className="w-3.5 h-3.5 shrink-0" />
+                  개인 폴더로 전환
+                </button>
+              ) : (
+                <button
+                  className="w-full text-left flex items-center gap-2 px-3 py-2 text-[12px] hover:bg-muted/60 transition-colors text-indigo-500 hover:text-indigo-400"
+                  onClick={() => {
+                    updateFolder(f.id, { workspaceType: 'project' });
+                    setCtxMenu(null);
+                  }}
+                >
+                  <FolderKanban className="w-3.5 h-3.5 shrink-0" />
+                  프로젝트로 전환
+                </button>
+              )}
+
+              {/* 구분선 */}
+              <div className="border-t border-border/40 my-1" />
+
+              {/* 폴더 삭제 */}
+              <button
+                className="w-full text-left flex items-center gap-2 px-3 py-2 text-[12px] hover:bg-red-500/10 transition-colors text-red-500"
+                onClick={() => {
+                  deleteFolder(f.id);
+                  setCtxMenu(null);
+                }}
+              >
+                <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                폴더 삭제
+              </button>
+            </div>
+          </>
+        );
+      })()}
+    </>
   );
 }

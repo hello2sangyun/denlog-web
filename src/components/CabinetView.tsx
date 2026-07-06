@@ -14,14 +14,18 @@ export function CabinetView() {
   const [isStartModalOpen, setIsStartModalOpen] = useState(false);
 
   const filteredRecordings = recordings.filter(r => {
-    // Basic text search
-    if (searchQuery.trim() && !r.title.toLowerCase().includes(searchQuery.toLowerCase())) {
-      return false;
+    // Extended text search: title + summary + transcript
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const inTitle    = r.title.toLowerCase().includes(q);
+      const inSummary  = r.summary ? r.summary.toLowerCase().includes(q) : false;
+      const inTranscript = r.transcript ? r.transcript.toLowerCase().includes(q) : false;
+      if (!inTitle && !inSummary && !inTranscript) return false;
     }
     
     // Tab filter
     if (filterTab === 'all') return true;
-    if (filterTab === 'shared') return r.isShared;
+    if (filterTab === 'shared') return r.isShared ?? false;
     if (filterTab === 'solo') return r.mode === 'solo' && !r.isShared;
     if (filterTab === 'team') return r.mode === 'team' && !r.isShared;
     if (filterTab === 'call') return r.mode === 'call' && !r.isShared;

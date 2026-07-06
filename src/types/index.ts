@@ -33,6 +33,14 @@ export interface Todo {
     slides: { id: string; title: string; content: string[] }[];
   };
   aiDeckDismissedAt?: string | null; // dismiss 시 timestamp 기록, fingerprint 보존용
+  timeBlockSlot?: number | null;     // 1~4: Block1~Block4 (Today Block View)
+  top3Rank?: number | null;          // 1~3: 오늘의 Top3 순위
+  estimatedMinutes?: number | null;  // 예상 소요 시간(분)
+  sortOrder?: number | null;         // 수동 정렬 순서
+  // ── 역할 / 클라이언트 / 파트너 ───────────────────────────────────────────────
+  todoRole?: 'own' | 'client_request' | 'delegated' | null;
+  approvalStatus?: 'pending' | 'approved' | 'rejected' | 'revision_requested' | null;
+  delegateStatus?: 'not_started' | 'in_progress' | 'blocked' | 'completed' | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -66,6 +74,11 @@ export interface Folder {
   collaborators: Collaborator[];
   todoCount: number;
   createdAt: Date;
+  // ── Project Workspace 확장 필드 (모바일앱 동일 DB) ────────────────────────────────
+  workspaceType?: 'personal' | 'project'; // DB: workspace_type
+  description?: string | null;            // DB: description
+  clientEmail?: string | null;            // DB: client_email
+  inviteToken?: string | null;            // DB: invite_token
 }
 
 // ── User Profile ──────────────────────────────────────────────────────────────

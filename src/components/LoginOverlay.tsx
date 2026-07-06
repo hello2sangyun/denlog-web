@@ -11,8 +11,8 @@ export function LoginOverlay() {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          // Always request redirect to localhost:3000 so our local server catches it
-          redirectTo: 'http://localhost:3000',
+          // 현재 실행 중인 포트에 맞춰 동적으로 redirect (3000, 3001 등 어떤 포트도 OK)
+          redirectTo: window.location.origin,
           skipBrowserRedirect: true,
         },
       });

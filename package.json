@@ -48,8 +48,8 @@
     "mac": {
       "target": [
         {
-          "target": "dir",
-          "arch": ["universal"]
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
         },
         {
           "target": "zip",
@@ -66,6 +66,7 @@
       ],
       "icon": "build/icon.png"
     },
+    "compression": "maximum",
     "directories": {
       "output": "dist"
     },
@@ -79,7 +80,7 @@
       {
         "provider": "github",
         "owner": "hello2sangyun",
-        "repo": "denlog"
+        "repo": "denlog-releases"
       }
     ]
   }

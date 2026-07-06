@@ -8,7 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMe
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Calendar as CalendarComponent } from './ui/calendar';
-import { X, Share2, Trash2, Calendar, Folder, Tag as TagIcon, User, Send, CheckCircle2, PlayCircle, Wand2, Paperclip, Eye, Clock, Bell } from 'lucide-react';
+import { X, Share2, Trash2, Calendar, Folder, Tag as TagIcon, User, Send, CheckCircle2, PlayCircle, Wand2, Paperclip, Eye, Clock, Bell, Briefcase, UserCheck } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useTranslation } from '@/lib/i18n';
 import { format } from 'date-fns';
@@ -16,13 +16,16 @@ import { cn } from '@/lib/utils';
 import { supabase } from '../lib/supabase';
 
 export function TodoDetail() {
-  const { user, todos, folders, selectedTodoId, setSelectedTodo, updateTodo, comments, fetchComments, addComment, setViewingDeckTodo, usersMap, deleteTodos } = useStore();
+  const { user, todos, folders, selectedTodoId, setSelectedTodo, updateTodo, comments, fetchComments, addComment, deleteComment, setViewingDeckTodo, usersMap, deleteTodos } = useStore();
   const { t } = useTranslation();
   const [commentText, setCommentText] = React.useState('');
   const [localMemo, setLocalMemo] = React.useState('');
   const [tagInput, setTagInput] = React.useState('');
   const [assigneeSearch, setAssigneeSearch] = React.useState('');
   const [viewerSearch, setViewerSearch] = React.useState('');
+  const [mentionQuery, setMentionQuery] = React.useState<string | null>(null);
+  const [mentionAnchor, setMentionAnchor] = React.useState(0); // position of @ in text
+  const commentInputRef = React.useRef<HTMLInputElement>(null);
   const memoRef = React.useRef<HTMLTextAreaElement>(null);
   
   const todo = todos.find(t => t.id === selectedTodoId);
@@ -34,11 +37,21 @@ export function TodoDetail() {
     authorInitial: string,
     avatarUrl: string | undefined,
     createdAt: Date | null | undefined,
-    content: string
+    content: string,
+    inDialog = false
   ) => {
     const isMe = user?.id === authorId;
+    // Render @mentions highlighted
+    const renderContent = (text: string) => {
+      const parts = text.split(/(@\S+)/g);
+      return parts.map((part, i) =>
+        part.startsWith('@') ? (
+          <span key={i} className={cn("font-bold", isMe ? "text-primary-foreground" : "text-primary")}>{part}</span>
+        ) : part
+      );
+    };
     return (
-      <div key={id} className={cn("flex gap-3 animate-in fade-in slide-in-from-bottom-2", isMe ? "flex-row-reverse" : "flex-row")}>
+      <div key={inDialog ? id + '-dialog' : id} className={cn("group flex gap-3 animate-in fade-in slide-in-from-bottom-2", isMe ? "flex-row-reverse" : "flex-row")}>
         <Avatar className="h-7 w-7 shadow-sm shrink-0">
           <AvatarImage src={avatarUrl || undefined} />
           <AvatarFallback className={cn(isMe ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary")}>
@@ -46,7 +59,7 @@ export function TodoDetail() {
           </AvatarFallback>
         </Avatar>
         <div className={cn(
-          "flex flex-col gap-1 w-fit max-w-[85%] p-3 rounded-2xl",
+          "relative flex flex-col gap-1 w-fit max-w-[85%] p-3 rounded-2xl",
           isMe 
             ? "bg-primary text-primary-foreground rounded-tr-sm" 
             : "bg-muted/50 border border-border/30 rounded-tl-sm"
@@ -58,8 +71,18 @@ export function TodoDetail() {
             </span>
           </div>
           <p className={cn("text-[13px] leading-snug whitespace-pre-wrap break-words", isMe ? "text-primary-foreground" : "text-foreground")}>
-            {content}
+            {renderContent(content)}
           </p>
+          {/* Delete button — only for own comments, hover */}
+          {isMe && todo && (
+            <button
+              onClick={() => deleteComment(todo.id, id)}
+              className="absolute -top-2 -left-2 opacity-0 group-hover:opacity-100 transition-opacity bg-background border border-border rounded-full p-0.5 text-muted-foreground hover:text-destructive shadow-sm"
+              title="Delete comment"
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+          )}
         </div>
       </div>
     );
@@ -140,9 +163,59 @@ export function TodoDetail() {
 
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!commentText.trim()) return;
-    await addComment(todo.id, commentText);
+    const textToSubmit = commentText.trim();
+    if (!textToSubmit) return;
     setCommentText('');
+    setMentionQuery(null);
+    try {
+      await addComment(todo.id, textToSubmit);
+    } catch (err) {
+      setCommentText(textToSubmit);
+    }
+  };
+
+  // @멘션 처리
+  const handleCommentChange = (val: string) => {
+    setCommentText(val);
+    const lastAt = val.lastIndexOf('@');
+    if (lastAt !== -1 && lastAt === val.length - 1) {
+      setMentionQuery('');
+      setMentionAnchor(lastAt);
+    } else if (lastAt !== -1 && val.slice(lastAt + 1).match(/^\S*$/)) {
+      setMentionQuery(val.slice(lastAt + 1));
+      setMentionAnchor(lastAt);
+    } else {
+      setMentionQuery(null);
+    }
+  };
+
+  const insertMention = (username: string) => {
+    const before = commentText.slice(0, mentionAnchor);
+    const after  = commentText.slice(mentionAnchor + 1 + (mentionQuery?.length ?? 0));
+    setCommentText(`${before}@${username} ${after}`);
+    setMentionQuery(null);
+    commentInputRef.current?.focus();
+  };
+
+  // 브라우저 알림 (Reminder)
+  const handleReminderChange = async (checked: boolean) => {
+    updateTodo(todo.id, { hasReminder: checked });
+    if (checked && todo.dueDate && 'Notification' in window) {
+      const perm = await Notification.requestPermission();
+      if (perm === 'granted') {
+        const dueMs = new Date(todo.dueDate).getTime();
+        const now   = Date.now();
+        const delay = dueMs - now - 30 * 60 * 1000; // 30분 전
+        if (delay > 0) {
+          setTimeout(() => {
+            new Notification(`⏰ ${todo.title}`, {
+              body: `마감 30분 전입니다.`,
+              icon: '/favicon.ico',
+            });
+          }, delay);
+        }
+      }
+    }
   };
 
   const handleMemoBlur = () => {
@@ -320,13 +393,35 @@ export function TodoDetail() {
                   <input
                     type="checkbox"
                     checked={!!todo.hasReminder}
-                    onChange={e => updateTodo(todo.id, { hasReminder: e.target.checked })}
+                    onChange={e => handleReminderChange(e.target.checked)}
                     className="rounded-sm border-muted-foreground/30 text-primary focus:ring-0 focus:ring-offset-0 w-3.5 h-3.5"
                   />
                   <span className="text-[13px] font-medium text-muted-foreground group-hover/label:text-foreground transition-colors">
                     {todo.hasReminder ? 'On' : 'Off'}
                   </span>
                 </label>
+              </div>
+            </div>
+
+            {/* Todo Role */}
+            <div className="flex items-center min-h-[28px] group">
+              <div className="w-[120px] shrink-0 flex items-center gap-2 text-muted-foreground/70 text-[12px] font-medium">
+                <UserCheck className="w-3.5 h-3.5" /> Role
+              </div>
+              <div className="flex-1">
+                <Select
+                  value={(todo as any).todoRole || 'own'}
+                  onValueChange={val => updateTodo(todo.id, { ...(todo as any), todoRole: val })}
+                >
+                  <SelectTrigger className="h-7 w-auto px-2 -ml-2 bg-transparent border-0 focus:ring-0 shadow-none text-[13px] font-medium text-foreground hover:bg-muted/50 rounded-md transition-colors">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl shadow-lg shadow-black/5 border-border/30">
+                    <SelectItem value="own" className="text-[13px] cursor-pointer">My Task</SelectItem>
+                    <SelectItem value="client_request" className="text-[13px] cursor-pointer">Client Request</SelectItem>
+                    <SelectItem value="delegated" className="text-[13px] cursor-pointer">Delegated</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -531,6 +626,90 @@ export function TodoDetail() {
               </div>
             </div>
           )}
+
+          {/* ── CLIENT APPROVAL 카드 (todoRole==='client_request'일 때) ──────────── */}
+          {todo.todoRole === 'client_request' && (() => {
+            const status = todo.approvalStatus;
+            const statusColor = status === 'approved' ? '#22C55E'
+              : status === 'rejected' ? '#EF4444'
+              : status === 'revision_requested' ? '#6366F1'
+              : '#F59E0B';
+            const statusLabel = status === 'approved' ? '✔️ Approved'
+              : status === 'rejected' ? '❌ Rejected'
+              : status === 'revision_requested' ? '↩️ Revision Requested'
+              : '⏳ Pending Approval';
+            const canRequest = !status || status === 'revision_requested';
+
+            return (
+              <div className="rounded-xl border p-4 space-y-3" style={{
+                borderColor: statusColor + '40',
+                background: statusColor + '06'
+              }}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-amber-500">
+                    CLIENT APPROVAL
+                  </span>
+                  {status && (
+                    <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold"
+                      style={{ backgroundColor: statusColor + '18', color: statusColor }}>
+                      {statusLabel}
+                    </span>
+                  )}
+                </div>
+                {canRequest && (
+                  <button
+                    onClick={async () => {
+                      updateTodo(todo.id, { approvalStatus: 'pending' });
+                    }}
+                    className="w-full py-2 rounded-lg text-sm font-semibold transition-colors"
+                    style={{ backgroundColor: '#F59E0B18', color: '#F59E0B', border: '1px solid #F59E0B40' }}
+                  >
+                    {status === 'revision_requested' ? 'Re-request Approval' : 'Request Approval'}
+                  </button>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* ── PARTNER STATUS 카드 (todoRole==='delegated'일 때) ──────────────── */}
+          {todo.todoRole === 'delegated' && (
+            <div className="rounded-xl border border-violet-500/25 p-4 space-y-3" style={{ background: '#8B5CF608' }}>
+              <span className="text-[11px] font-bold uppercase tracking-widest text-violet-500">
+                PARTNER STATUS
+              </span>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {(['not_started', 'in_progress', 'blocked', 'completed'] as const).map(status => {
+                  const isActive = (todo.delegateStatus ?? 'not_started') === status;
+                  const color = status === 'completed' ? '#22C55E'
+                    : status === 'blocked' ? '#EF4444'
+                    : status === 'in_progress' ? '#0EA5E9'
+                    : '#94A3B8';
+                  const label = status === 'completed' ? '✔ Done'
+                    : status === 'blocked' ? '⛔ Blocked'
+                    : status === 'in_progress' ? '🔄 In Progress'
+                    : '⏳ Not Started';
+                  return (
+                    <button
+                      key={status}
+                      onClick={() => updateTodo(todo.id, { delegateStatus: status })}
+                      className="px-3 py-1.5 rounded-full text-[13px] font-medium transition-all"
+                      style={{
+                        borderWidth: isActive ? 2 : 1,
+                        borderStyle: 'solid',
+                        borderColor: isActive ? color : '#e2e8f040',
+                        backgroundColor: isActive ? color + '18' : 'transparent',
+                        color: isActive ? color : '#64748b',
+                        fontWeight: isActive ? 700 : 400,
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Activity */}
           <div className="space-y-4 pt-2">
             <Dialog>
@@ -543,13 +722,8 @@ export function TodoDetail() {
               
               <div className="space-y-3 pb-2 flex flex-col">
                 {currentComments.map(c => renderComment(
-                  c.id,
-                  c.userId,
-                  c.authorName,
-                  c.authorInitial,
-                  c.avatarUrl || undefined,
-                  c.createdAt,
-                  c.content
+                  c.id, c.userId, c.authorName, c.authorInitial,
+                  c.avatarUrl || undefined, c.createdAt, c.content
                 ))}
               </div>
 
@@ -561,13 +735,8 @@ export function TodoDetail() {
                 <ScrollArea className="flex-1 p-4 flex flex-col bg-muted/5">
                   <div className="space-y-4 max-w-3xl mx-auto w-full pb-4">
                     {currentComments.map(c => renderComment(
-                      c.id + '-dialog',
-                      c.userId,
-                      c.authorName,
-                      c.authorInitial,
-                      c.avatarUrl || undefined,
-                      c.createdAt,
-                      c.content
+                      c.id, c.userId, c.authorName, c.authorInitial,
+                      c.avatarUrl || undefined, c.createdAt, c.content, true
                     ))}
                   </div>
                 </ScrollArea>
@@ -595,11 +764,41 @@ export function TodoDetail() {
       </div>
 
       {/* Comment Input */}
-      <div className="p-4 bg-background shrink-0 border-t border-border/20 shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
+      <div className="p-4 bg-background shrink-0 border-t border-border/20 shadow-[0_-10px_20px_rgba(0,0,0,0.02)] relative">
+        {/* @멘션 팝업 */}
+        {mentionQuery !== null && (
+          <div className="absolute bottom-full left-4 right-4 mb-2 bg-popover border border-border/40 rounded-xl shadow-lg overflow-hidden z-20">
+            <div className="px-3 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider border-b border-border/30">
+              Mention a friend
+            </div>
+            {Object.values(usersMap)
+              .filter(u => !mentionQuery || u.name.toLowerCase().includes(mentionQuery.toLowerCase()))
+              .slice(0, 6)
+              .map(u => (
+                <button
+                  key={u.id}
+                  onMouseDown={e => { e.preventDefault(); insertMention(u.name.replace(/\s+/g, '')); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted/50 text-left transition-colors"
+                >
+                  <Avatar className="w-5 h-5">
+                    <AvatarImage src={u.avatarUrl || undefined} />
+                    <AvatarFallback className="text-[8px] bg-primary/10 text-primary">{u.name[0]}</AvatarFallback>
+                  </Avatar>
+                  <span className="text-[13px] font-medium">{u.name}</span>
+                </button>
+              ))
+            }
+            {Object.values(usersMap).filter(u => !mentionQuery || u.name.toLowerCase().includes(mentionQuery.toLowerCase())).length === 0 && (
+              <div className="px-3 py-2 text-[12px] text-muted-foreground">No matches</div>
+            )}
+          </div>
+        )}
         <form className="flex items-center gap-2 relative" onSubmit={handleCommentSubmit}>
           <Input 
+            ref={commentInputRef}
             value={commentText}
-            onChange={e => setCommentText(e.target.value)}
+            onChange={e => handleCommentChange(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Escape') setMentionQuery(null); }}
             placeholder={t('detail.addComment')} 
             className="flex-1 bg-muted/30 border border-border/60 focus-visible:ring-0 focus-visible:border-primary/50 rounded-full h-11 px-5 text-[13px]" 
           />

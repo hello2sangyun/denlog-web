@@ -7,6 +7,7 @@ import { KanbanBoard } from '@/components/KanbanBoard';
 import { UpcomingView } from '@/components/UpcomingView';
 import { PeopleView } from '@/components/PeopleView';
 import { CabinetView } from '@/components/CabinetView';
+import { ProjectDashboard } from '@/components/ProjectDashboard';
 import { DirectMessagePanel } from '@/components/DirectMessagePanel';
 import { TodoDetail } from '@/components/TodoDetail';
 import { RecordingDetail } from '@/components/RecordingDetail';
@@ -18,7 +19,8 @@ import { VoiceRecordingOverlay } from '@/components/VoiceRecordingOverlay';
 import { LoginOverlay } from '@/components/LoginOverlay';
 import { AiReviewBanner } from '@/components/AiReviewBanner';
 import EventPopupModal from '@/components/EventPopupModal';
-import { Bell, Search, Settings, LayoutList, KanbanSquare, Mic, Sun, Moon, Menu, X, Folder, ArrowDownUp, Check } from 'lucide-react';
+import { TodayBlockView } from '@/components/TodayBlockView';
+import { Bell, Search, Settings, LayoutList, KanbanSquare, Mic, Sun, Moon, Menu, X, Folder, ArrowDownUp, Check, FolderKanban, FolderOpen } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,6 +52,7 @@ export default function Home() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [dragToast, setDragToast] = React.useState<string | null>(null);
   const [isShaking, setIsShaking] = React.useState(false);
+  const [isBlockMode, setIsBlockMode] = React.useState(true); // Today의 기본 Block 모드
   const dragToastTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const notifRef = React.useRef<HTMLDivElement>(null);
 
@@ -61,6 +64,10 @@ export default function Home() {
 
   React.useEffect(() => {
     setIsMobileMenuOpen(false);
+    // Today 븷으로 이동 시 Block 모드 자동 전환
+    if (currentView === 'today') {
+      setIsBlockMode(true);
+    }
   }, [currentView]);
 
   const [rightSidebarWidth, setRightSidebarWidth] = React.useState(540);
@@ -279,31 +286,76 @@ export default function Home() {
               </SheetContent>
             </Sheet>
 
-            <div className="flex items-baseline gap-3">
+            <div className="flex items-center gap-3">
               <h1 className="text-[24px] md:text-[28px] font-bold tracking-tight capitalize text-foreground leading-none">{getHeaderTitle()}</h1>
               <span className="text-xs md:text-sm text-muted-foreground font-medium leading-none hidden sm:inline-block">{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+              {/* 폴더 뷰일 때: 프로젝트 전환 버튼 */}
+              {(() => {
+                const af = folders.find(f => f.id === currentView);
+                if (!af) return null;
+                const { updateFolder } = useStore.getState();
+                const isProj = af.workspaceType === 'project';
+                return (
+                  <button
+                    onClick={() => updateFolder(af.id, { workspaceType: isProj ? 'personal' : 'project' })}
+                    title={isProj ? '개인 폴더로 전환' : '프로젝트로 전환'}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-semibold transition-all border hover:shadow-sm ml-1"
+                    style={{
+                      color: isProj ? '#6366F1' : '#94A3B8',
+                      borderColor: isProj ? '#6366F1' + '40' : '#94A3B8' + '30',
+                      backgroundColor: isProj ? '#6366F1' + '10' : 'transparent',
+                    }}
+                  >
+                    {isProj
+                      ? <><FolderKanban className="w-3.5 h-3.5" /> PROJECT</>
+                      : <><FolderOpen className="w-3.5 h-3.5" /> 폴더로 전환</>}
+                  </button>
+                );
+              })()}
             </div>
             
             {/* View Mode & Sort Toggle */}
-            <div className="hidden md:flex items-center bg-muted/80 p-1 rounded-lg border border-border/50 ml-4 gap-1">
-              <div className="flex items-center">
-                <Button 
-                  variant="ghost"
-                  size="sm" 
-                  onClick={() => setViewMode('list')}
-                  className={cn("h-8 px-4 text-sm font-semibold rounded-md transition-all", viewMode === 'list' ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-transparent")}
-                >
-                  <LayoutList className="w-4 h-4 mr-2 stroke-[2]" /> List
-                </Button>
-                <Button 
-                  variant="ghost"
-                  size="sm" 
-                  onClick={() => setViewMode('board')}
-                  className={cn("h-8 px-4 text-sm font-semibold rounded-md transition-all", viewMode === 'board' ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-transparent")}
-                >
-                  <KanbanSquare className="w-4 h-4 mr-2 stroke-[2]" /> Board
-                </Button>
-              </div>
+            {'upcoming' !== currentView && (
+              <div className="hidden md:flex items-center bg-muted/80 p-1 rounded-lg border border-border/50 ml-4 gap-1">
+                <div className="flex items-center">
+                  {currentView === 'today' ? (
+                    // Today: List | Block
+                    <>
+                      <Button
+                        variant="ghost" size="sm"
+                        onClick={() => { setViewMode('list'); setIsBlockMode(false); }}
+                        className={cn("h-8 px-4 text-sm font-semibold rounded-md transition-all", !isBlockMode ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-transparent")}
+                      >
+                        <LayoutList className="w-4 h-4 mr-2 stroke-[2]" /> List
+                      </Button>
+                      <Button
+                        variant="ghost" size="sm"
+                        onClick={() => setIsBlockMode(true)}
+                        className={cn("h-8 px-4 text-sm font-semibold rounded-md transition-all", isBlockMode ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-transparent")}
+                      >
+                        <KanbanSquare className="w-4 h-4 mr-2 stroke-[2]" /> Block
+                      </Button>
+                    </>
+                  ) : (
+                    // Other views: List | Board
+                    <>
+                      <Button
+                        variant="ghost" size="sm"
+                        onClick={() => setViewMode('list')}
+                        className={cn("h-8 px-4 text-sm font-semibold rounded-md transition-all", viewMode === 'list' ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-transparent")}
+                      >
+                        <LayoutList className="w-4 h-4 mr-2 stroke-[2]" /> List
+                      </Button>
+                      <Button
+                        variant="ghost" size="sm"
+                        onClick={() => setViewMode('board')}
+                        className={cn("h-8 px-4 text-sm font-semibold rounded-md transition-all", viewMode === 'board' ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-transparent")}
+                      >
+                        <KanbanSquare className="w-4 h-4 mr-2 stroke-[2]" /> Board
+                      </Button>
+                    </>
+                  )}
+                </div>
 
               <div className="w-px h-4 bg-border mx-1" />
 
@@ -328,6 +380,7 @@ export default function Home() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
+            )}
 
             {/* Search */}
             {!selectedTodoId && (
@@ -411,18 +464,22 @@ export default function Home() {
         <AiReviewBanner />
         <div className={cn("flex-1 overflow-hidden bg-card flex flex-col relative", isShaking && "animate-shake")}>
           {currentView === 'today' ? (
-            <TodoList />
+            isBlockMode ? <TodayBlockView /> : <TodoList />
           ) : currentView === 'upcoming' ? (
             viewMode === 'board' ? <KanbanBoard /> : <UpcomingView />
           ) : currentView === 'people' ? (
             <PeopleView />
           ) : currentView === 'cabinet' || currentView === 'meetings' ? (
             <CabinetView />
-          ) : viewMode === 'board' ? (
-            <KanbanBoard />
-          ) : (
-            <TodoList />
-          )}
+          ) : (() => {
+            // 폴더 뷰일 때 프로젝트 폴더면 ProjectDashboard 렌더링
+            const activeFolder = folders.find(f => f.id === currentView);
+            if (activeFolder?.workspaceType === 'project') {
+              return <ProjectDashboard folder={activeFolder} />;
+            }
+            return viewMode === 'board' ? <KanbanBoard /> : <TodoList />;
+          })()
+          }
         </div>
 
         {/* Floating Action Bar */}

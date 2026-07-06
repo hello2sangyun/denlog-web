@@ -62,3 +62,20 @@ body {
 .animate-shake {
   animation: shake 0.8s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
 }
+
+/* ── Flash green (task completion) ────────────────────────────────────── */
+@keyframes flash-green {
+  0%   { background-color: transparent; }
+  25%  { background-color: rgba(52,211,153,0.28); }
+  100% { background-color: transparent; }
+}
+.animate-flash-green {
+  animation: flash-green 0.6s ease-out forwards;
+}
+
+/* ── Confetti burst ────────────────────────────────────────────────────── */
+@keyframes confetti-burst {
+  0%   { transform: translate(-50%,-50%) scale(0.2) rotate(0deg); opacity: 1; }
+  60%  { opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--tx, 0px)), calc(-50% + var(--ty, 0px))) scale(1) rotate(var(--rot, 180deg)); opacity: 0; }
+}

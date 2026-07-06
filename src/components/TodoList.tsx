@@ -6,14 +6,73 @@ import { format, isToday } from 'date-fns';
 import { useTranslation } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { AlertCircle, Tag, CalendarClock, MoreVertical, Check, CheckCircle2, MessageSquare } from 'lucide-react';
+import { AlertCircle, Tag, CalendarClock, MoreVertical, Check, CheckCircle2, MessageSquare, Paperclip } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import type { Todo } from '../types';
 
+// ── Confetti ──────────────────────────────────────────────────────────────────
+const CONFETTI_COLORS = ['#E8574A','#34D399','#F59E0B','#8B5CF6','#06B6D4','#F472B6','#A3E635'];
+
+function ConfettiBurst({ visible, onDone }: { visible: boolean; onDone: () => void }) {
+  const particles = React.useMemo(() =>
+    Array.from({ length: 28 }, (_, i) => ({
+      id: i,
+      color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+      x: (Math.random() - 0.5) * 160,
+      y: -(Math.random() * 160 + 60),
+      rotate: Math.random() * 720 - 360,
+      scale: 0.4 + Math.random() * 0.8,
+      isRect: i % 3 !== 0,
+      delay: Math.random() * 120,
+    })), []);
+
+  React.useEffect(() => {
+    if (visible) {
+      const t = setTimeout(onDone, 900);
+      return () => clearTimeout(t);
+    }
+  }, [visible, onDone]);
+
+  if (!visible) return null;
+
+  return (
+    <div
+      className="pointer-events-none fixed inset-0 z-[9999] flex items-center justify-center"
+      aria-hidden
+    >
+      {particles.map(p => (
+        <div
+          key={p.id}
+          style={{
+            position: 'absolute',
+            width:  p.isRect ? 7 : 8,
+            height: p.isRect ? 14 : 8,
+            borderRadius: p.isRect ? 2 : '50%',
+            backgroundColor: p.color,
+            top: '50%', left: '50%',
+            animationName: 'confetti-burst',
+            animationDuration: `${700 + p.delay}ms`,
+            animationTimingFunction: 'cubic-bezier(0.22,0.61,0.36,1)',
+            animationFillMode: 'forwards',
+            transform: `translate(${p.x}px, ${p.y}px) rotate(${p.rotate}deg) scale(${p.scale})`,
+            opacity: 0,
+            // inject CSS vars for the keyframe
+            ['--tx' as any]: `${p.x}px`,
+            ['--ty' as any]: `${p.y}px`,
+            ['--rot' as any]: `${p.rotate}deg`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function TodoList({ customTodos }: { customTodos?: Todo[] }) {
-  const { todos: storeTodos, folders, selectedTodoId, setSelectedTodo, currentView, searchQuery, usersMap, updateTodo, selectedTodoIds, toggleTodoSelection, unreadCommentCounts, todoSort } = useStore();
+  const { todos: storeTodos, folders, selectedTodoId, setSelectedTodo, currentView, searchQuery, usersMap, updateTodo, selectedTodoIds, toggleTodoSelection, unreadCommentCounts, todoSort, comments } = useStore();
   const { t } = useTranslation();
   const [animatingIds, setAnimatingIds] = React.useState<string[]>([]);
+  const [flashingIds,   setFlashingIds]  = React.useState<string[]>([]);
+  const [confettiVisible, setConfettiVisible] = React.useState(false);
 
   const baseTodos = customTodos || storeTodos;
 
@@ -133,10 +192,11 @@ export function TodoList({ customTodos }: { customTodos?: Todo[] }) {
                   style={provided.draggableProps.style}
                   onClick={() => setSelectedTodo(todo.id)}
                   className={cn(
-                    "group flex items-start gap-3 px-6 py-3.5 border-b border-border/40 hover:bg-muted/30 cursor-grab active:cursor-grabbing transition-all border-l-[3px]",
+                    "group flex items-start gap-3 px-6 py-3.5 border-b border-border/40 hover:bg-muted/30 cursor-grab active:cursor-grabbing transition-all border-l-[3px] relative overflow-hidden",
                     priorityBorder,
                     selectedTodoId === todo.id || selectedTodoIds.includes(todo.id) ? "bg-muted/30" : "",
-                    snapshot.isDragging && "shadow-2xl border-primary/70 opacity-95 scale-[1.02] z-50 bg-card rounded-lg rotate-1 ring-2 ring-primary/30"
+                    snapshot.isDragging && "shadow-2xl border-primary/70 opacity-95 scale-[1.02] z-50 bg-card rounded-lg rotate-1 ring-2 ring-primary/30",
+                    flashingIds.includes(todo.id) && "animate-flash-green"
                   )}
                 >
                   <div
@@ -159,10 +219,15 @@ export function TodoList({ customTodos }: { customTodos?: Todo[] }) {
                       e.stopPropagation();
                       if (!todo.isCompleted) {
                         setAnimatingIds(prev => [...prev, todo.id]);
+                        setFlashingIds(prev => [...prev, todo.id]);
+                        setConfettiVisible(true);
                         setTimeout(() => {
                           updateTodo(todo.id, { isCompleted: true });
                           setAnimatingIds(prev => prev.filter(id => id !== todo.id));
                         }, 400);
+                        setTimeout(() => {
+                          setFlashingIds(prev => prev.filter(id => id !== todo.id));
+                        }, 600);
                       } else {
                         updateTodo(todo.id, { isCompleted: false });
                       }
@@ -177,16 +242,33 @@ export function TodoList({ customTodos }: { customTodos?: Todo[] }) {
                   </button>
 
                   <div className="flex flex-col gap-1 flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <span className={cn(
-                        "text-[14px] font-bold leading-tight relative inline-block transition-colors duration-300", 
-                        isVisuallyCompleted ? "text-muted-foreground" : "text-foreground",
-                        "after:absolute after:left-0 after:top-1/2 after:h-[1.5px] after:bg-current after:transition-[width] after:duration-300 after:ease-out",
-                        isVisuallyCompleted ? "after:w-full" : "after:w-0"
-                      )}>
-                        {todo.title}
-                      </span>
-                      <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                        <span className={cn(
+                          "text-[14px] font-bold leading-tight relative inline-block transition-colors duration-300 truncate", 
+                          isVisuallyCompleted ? "text-muted-foreground" : "text-foreground",
+                          "after:absolute after:left-0 after:top-1/2 after:h-[1.5px] after:bg-current after:transition-[width] after:duration-300 after:ease-out",
+                          isVisuallyCompleted ? "after:w-full" : "after:w-0"
+                        )}>
+                          {todo.title}
+                        </span>
+                        {/* Comment count (N) inline */}
+                        {(() => {
+                          const loaded = comments?.[todo.id];
+                          const n = loaded ? loaded.length : (todo as any).commentCount ?? 0;
+                          return n > 0 ? (
+                            <span className="text-[11px] font-semibold text-muted-foreground/50 shrink-0">({n})</span>
+                          ) : null;
+                        })()}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {/* Attachment badge */}
+                        {(todo.attachments?.length ?? 0) > 0 && (
+                          <span className="flex items-center gap-0.5 text-muted-foreground/50 text-[11px] font-medium">
+                            <Paperclip className="w-3 h-3" />
+                            {todo.attachments!.length}
+                          </span>
+                        )}
                         {/* Unread comment badge */}
                         {(unreadCommentCounts[todo.id] ?? 0) > 0 && (
                           <span
@@ -259,6 +341,8 @@ export function TodoList({ customTodos }: { customTodos?: Todo[] }) {
         </div>
         )}
       </Droppable>
+      {/* Confetti overlay */}
+      <ConfettiBurst visible={confettiVisible} onDone={() => setConfettiVisible(false)} />
     </ScrollArea>
   );
 }

@@ -88,8 +88,10 @@ interface AppState {
   fetchComments: (todoId: string) => Promise<void>;
   fetchRecordings: () => Promise<void>;
   addComment: (todoId: string, content: string) => Promise<void>;
+  deleteComment: (todoId: string, commentId: string) => Promise<void>;
   createFolder: (name: string) => Promise<void>;
   deleteFolder: (folderId: string) => Promise<void>;
+  updateFolder: (folderId: string, updates: { workspaceType?: 'personal' | 'project'; name?: string }) => Promise<void>;
   deleteRecordings: (ids: string[]) => Promise<void>;
   markNotificationRead: (id: string) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
@@ -510,6 +512,15 @@ export const useStore = create<AppState>((set, get) => ({
         }
       }
       if (updates.hasReminder !== undefined) dbUpdates.has_reminder = updates.hasReminder;
+      // ── Time Block / Top3 (mobile app 동일 DB 콜럼) ─────────────────────────────
+      if ('top3Rank' in updates)         dbUpdates.top3_rank = updates.top3Rank ?? null;
+      if ('timeBlockSlot' in updates)    dbUpdates.time_block_slot = updates.timeBlockSlot ?? null;
+      if ('estimatedMinutes' in updates) dbUpdates.estimated_minutes = updates.estimatedMinutes ?? null;
+      if ('sortOrder' in updates)        dbUpdates.sort_order = updates.sortOrder ?? null;
+      // ── 역할 / 클라이언트 / 파트너 ───────────────────────────────────────────────
+      if ('todoRole' in updates)         dbUpdates.todo_role = updates.todoRole ?? null;
+      if ('approvalStatus' in updates)   dbUpdates.approval_status = updates.approvalStatus ?? null;
+      if ('delegateStatus' in updates)   dbUpdates.delegate_status = updates.delegateStatus ?? null;
       
       await supabase.from('todos').update(dbUpdates).eq('id', id);
       
@@ -641,6 +652,20 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
+  deleteComment: async (todoId, commentId) => {
+    set(state => ({
+      comments: {
+        ...state.comments,
+        [todoId]: (state.comments[todoId] || []).filter(c => c.id !== commentId),
+      }
+    }));
+    const { error } = await supabase.from('todo_comments').delete().eq('id', commentId);
+    if (error) {
+      console.error('Error deleting comment:', error);
+      get().fetchComments(todoId);
+    }
+  },
+
   fetchRecordings: async () => {
     const { user } = get();
     if (!user) return;
@@ -737,6 +762,19 @@ export const useStore = create<AppState>((set, get) => ({
     // Optimistic delete
     set(state => ({ folders: state.folders.filter(f => f.id !== folderId) }));
     await supabase.from('folders').delete().eq('id', folderId);
+  },
+
+  updateFolder: async (folderId, updates) => {
+    const dbUpdates: Record<string, unknown> = {};
+    if (updates.workspaceType !== undefined) dbUpdates.workspace_type = updates.workspaceType;
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    // Optimistic update
+    set(state => ({
+      folders: state.folders.map(f =>
+        f.id === folderId ? { ...f, ...updates } : f
+      ),
+    }));
+    await supabase.from('folders').update(dbUpdates).eq('id', folderId);
   },
 
   deleteRecordings: async (ids) => {
@@ -866,6 +904,13 @@ export const useStore = create<AppState>((set, get) => ({
             folderId: t.folder_id, assigneeIds: t.assignee_ids || [], viewerIds: t.viewer_ids || [],
             tags: t.tags || [], isCompleted: t.is_completed, completedAt: t.completed_at ? new Date(t.completed_at) : null,
             aiConfidenceLow: t.ai_confidence_low, aiDeckPending: t.ai_deck_pending, aiDeckDismissedAt: t.ai_deck_dismissed_at,
+            top3Rank: (t.top3_rank as 1|2|3|null) ?? null,
+            timeBlockSlot: (t.time_block_slot as 1|2|3|4|null) ?? null,
+            estimatedMinutes: t.estimated_minutes ?? null,
+            sortOrder: t.sort_order ?? null,
+            todoRole: t.todo_role ?? null,
+            approvalStatus: t.approval_status ?? null,
+            delegateStatus: t.delegate_status ?? null,
             createdAt: new Date(t.created_at), updatedAt: new Date(t.updated_at)
           };
           set(state => ({ todos: [newTodo, ...state.todos.filter(x => x.id !== t.id)] }));
@@ -888,6 +933,13 @@ export const useStore = create<AppState>((set, get) => ({
               aiDeckPending: t.ai_deck_pending,
               aiDeckDismissedAt: t.ai_deck_dismissed_at,
               sourceExcerpt: t.source_excerpt,
+              top3Rank: (t.top3_rank as 1|2|3|null) ?? null,
+              timeBlockSlot: (t.time_block_slot as 1|2|3|4|null) ?? null,
+              estimatedMinutes: t.estimated_minutes ?? null,
+              sortOrder: t.sort_order ?? null,
+              todoRole: t.todo_role ?? null,
+              approvalStatus: t.approval_status ?? null,
+              delegateStatus: t.delegate_status ?? null,
               updatedAt: new Date(t.updated_at),
             } : todo)
           }));
@@ -1080,11 +1132,13 @@ export const useStore = create<AppState>((set, get) => ({
       }
       set({ usersMap: newUsersMap });
 
-      // Fetch todos
+      // Fetch todos — 모바일 앱 DM_FILTER 동일 적용: 🔒[PORTAL_DM 시스템 항목 제외
+      const DM_FILTER = '🔒[PORTAL_DM%';
       let { data: todos, error: todosError } = await supabase
         .from('todos')
         .select('*')
         .or(`user_id.eq.${userId},assignee_ids.cs.{"${userId}"}`)
+        .not('title', 'ilike', DM_FILTER)
         .order('created_at', { ascending: false });
         
       if (todosError) {
@@ -1092,6 +1146,7 @@ export const useStore = create<AppState>((set, get) => ({
         const { data: allTodos } = await supabase
           .from('todos')
           .select('*')
+          .not('title', 'ilike', DM_FILTER)
           .order('created_at', { ascending: false });
           
         if (allTodos) {
@@ -1101,7 +1156,7 @@ export const useStore = create<AppState>((set, get) => ({
         
       if (todos) {
         const mappedTodos: Todo[] = todos
-          .filter(t => !t.title.includes('필터를 위해 저장용') && !t.title.includes('필터를위해 저장용'))
+          .filter(t => !t.title.includes('필터를 위해 저장용') && !t.title.includes('필터를위해 저장용') && !t.title.startsWith('🔒[PORTAL_DM'))
           .map(t => ({
           id: t.id,
           userId: t.user_id,
@@ -1123,6 +1178,11 @@ export const useStore = create<AppState>((set, get) => ({
           aiConfidenceLow: t.ai_confidence_low,
           aiDeckPending: t.ai_deck_pending,
           aiDeckDismissedAt: t.ai_deck_dismissed_at,
+          // ── Time Block / Top3 필드 (모바일 앱과 동일 DB) ─────────────────────
+          top3Rank: (t.top3_rank as 1|2|3|null) ?? null,
+          timeBlockSlot: (t.time_block_slot as 1|2|3|4|null) ?? null,
+          estimatedMinutes: t.estimated_minutes ?? null,
+          sortOrder: t.sort_order ?? null,
           createdAt: new Date(t.created_at),
           updatedAt: new Date(t.updated_at),
         }));
@@ -1160,7 +1220,12 @@ export const useStore = create<AppState>((set, get) => ({
               };
             }),
             todoCount: get().todos.filter(t => t.folderId === f.id && !t.isCompleted).length,
-            createdAt: new Date(f.created_at)
+            createdAt: new Date(f.created_at),
+            // ── Project Workspace 확장 필드 (모바일앱 동일 DB 컬럼) ──────────────────
+            workspaceType: (f.workspace_type ?? 'personal') as 'personal' | 'project',
+            description: f.description ?? null,
+            clientEmail: f.client_email ?? null,
+            inviteToken: f.invite_token ?? null,
           };
         }));
         set({ folders: mappedFolders });
