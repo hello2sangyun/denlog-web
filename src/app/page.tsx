@@ -478,30 +478,6 @@ export default function Home() {
                     </>
                   )}
                 </div>
-
-              <div className="w-px h-4 bg-border mx-1" />
-
-              <DropdownMenu>
-                {/* @ts-ignore */}
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 px-3 text-sm font-semibold text-muted-foreground hover:text-foreground">
-                    <ArrowDownUp className="w-4 h-4 mr-2" />
-                    {t('todo.sort') || 'Sort'}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-40">
-                  <DropdownMenuItem onClick={() => setTodoSort('default')} className="justify-between">
-                    {t('todo.sortDefault') || 'Default'} {todoSort === 'default' && <Check className="w-4 h-4" />}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setTodoSort('dueDate')} className="justify-between">
-                    {t('todo.sortDueDate') || 'By Due Date'} {todoSort === 'dueDate' && <Check className="w-4 h-4" />}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setTodoSort('priority')} className="justify-between">
-                    {t('todo.sortPriority') || 'By Priority'} {todoSort === 'priority' && <Check className="w-4 h-4" />}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
             )}
 
             {/* Search — Cmd+K to focus */}

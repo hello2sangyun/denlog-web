@@ -499,7 +499,7 @@ export function AiReviewBanner() {
             </NavBtn>
           </div>
 
-          {/* 삭제 / 저장 */}
+          {/* 미승인 / 할일로 저장 */}
           <div style={{ display: 'flex', gap: 8 }}>
             <button
               onClick={handleDelete}
@@ -514,7 +514,7 @@ export function AiReviewBanner() {
               onMouseEnter={e => { e.currentTarget.style.background = '#ef44441a'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
             >
-              <Icon.Trash /> {isEn ? 'Delete' : '삭제'}
+              <Icon.Trash /> {isEn ? 'Dismiss' : '미승인'}
             </button>
             <button
               onClick={handleSave}
@@ -528,7 +528,7 @@ export function AiReviewBanner() {
               onMouseEnter={e => { e.currentTarget.style.opacity = '0.85'; }}
               onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
             >
-              <Icon.Check /> {isEn ? 'Save' : '저장'}
+              <Icon.Check /> {isEn ? 'Save as Task' : '할일로 저장'}
             </button>
           </div>
         </div>

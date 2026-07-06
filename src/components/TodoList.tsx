@@ -5,8 +5,9 @@ import { format, isToday } from 'date-fns';
 import { useTranslation } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { AlertCircle, Tag, CalendarClock, MoreVertical, Check, CheckCircle2, MessageSquare, Paperclip, Plus, CheckCheck, Trash2, FolderInput } from 'lucide-react';
+import { AlertCircle, Tag, CalendarClock, MoreVertical, Check, CheckCircle2, MessageSquare, Paperclip, Plus, CheckCheck, Trash2, FolderInput, ArrowUpDown } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
 import type { Todo } from '../types';
 
 // ── Confetti ──────────────────────────────────────────────────────────────────
@@ -67,7 +68,7 @@ function ConfettiBurst({ visible, onDone }: { visible: boolean; onDone: () => vo
 }
 
 export function TodoList({ customTodos }: { customTodos?: Todo[] }) {
-  const { todos: storeTodos, folders, selectedTodoId, setSelectedTodo, currentView, searchQuery, usersMap, updateTodo, selectedTodoIds, toggleTodoSelection, unreadCommentCounts, todoSort, comments } = useStore();
+  const { todos: storeTodos, folders, selectedTodoId, setSelectedTodo, currentView, searchQuery, usersMap, updateTodo, selectedTodoIds, toggleTodoSelection, unreadCommentCounts, todoSort, setTodoSort, comments } = useStore();
   const { t } = useTranslation();
   const [animatingIds, setAnimatingIds] = React.useState<string[]>([]);
   const [flashingIds,   setFlashingIds]  = React.useState<string[]>([]);
@@ -159,11 +160,54 @@ export function TodoList({ customTodos }: { customTodos?: Todo[] }) {
             )}
         
         {filteredTodos.length > 0 && (
-          <div className="flex justify-end px-6 py-2 border-b border-border/20">
-            <button 
+          <div className="flex items-center justify-between px-6 py-2 border-b border-border/20">
+            {/* 정렬 드롭다운 */}
+            <DropdownMenu>
+              {/* @ts-ignore */}
+              <DropdownMenuTrigger asChild>
+                <button className={cn(
+                  "flex items-center gap-1.5 text-[12px] font-medium transition-colors",
+                  todoSort !== 'default'
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                )}>
+                  <ArrowUpDown className="w-3.5 h-3.5" />
+                  {todoSort === 'dueDate'
+                    ? (t('sort.dueDate') || '마감일 순')
+                    : todoSort === 'priority'
+                    ? (t('sort.priority') || '우선순위 순')
+                    : (t('sort.label') || '정렬')}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-44">
+                <DropdownMenuItem
+                  onClick={() => useStore.getState().setTodoSort('default')}
+                  className="justify-between text-[13px]"
+                >
+                  {t('sort.manual') || '직접 정렬'}
+                  {todoSort === 'default' && <Check className="w-3.5 h-3.5" />}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => useStore.getState().setTodoSort('dueDate')}
+                  className="justify-between text-[13px]"
+                >
+                  {t('sort.dueDate') || '마감일 순'}
+                  {todoSort === 'dueDate' && <Check className="w-3.5 h-3.5" />}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => useStore.getState().setTodoSort('priority')}
+                  className="justify-between text-[13px]"
+                >
+                  {t('sort.priority') || '우선순위 순'}
+                  {todoSort === 'priority' && <Check className="w-3.5 h-3.5" />}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* 전체 선택 */}
+            <button
               onClick={() => {
                 const allIds = filteredTodos.map(t => t.id);
-                // If everything currently filtered is selected, deselect them
                 const allSelected = allIds.every(id => selectedTodoIds.includes(id));
                 if (allSelected) {
                   useStore.getState().clearTodoSelection();
@@ -174,7 +218,7 @@ export function TodoList({ customTodos }: { customTodos?: Todo[] }) {
               className="text-[12px] text-muted-foreground hover:text-foreground flex items-center gap-1.5 font-medium transition-colors"
             >
               <Check className="w-3.5 h-3.5" />
-              {filteredTodos.length > 0 && filteredTodos.every(t => selectedTodoIds.includes(t.id)) ? t('todo.deselectAll') : t('todo.selectAll')}
+              {filteredTodos.every(t => selectedTodoIds.includes(t.id)) ? (t('todo.deselectAll') || '선택 해제') : (t('todo.selectAll') || '전체 선택')}
             </button>
           </div>
         )}
