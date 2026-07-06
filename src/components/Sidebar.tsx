@@ -212,8 +212,10 @@ export function Sidebar({ className, collapsed = false, ...props }: SidebarProps
                         />
                       </div>
                     )}
-                    {/* 폴더 목록: sidebar-folders Droppable — 순서 변경 + 할일 이동 */}
-                    <Droppable droppableId="sidebar-folders">
+
+                    {/* 폴더 순서 변경: sidebar-folders Droppable + per-folder Draggable
+                        ⚠️ Droppable 안에 Droppable 중첩 금지 → 할일→폴더 drop은 아래 별도 처리 */}
+                    <Droppable droppableId="sidebar-folders" type="FOLDER">
                       {(sidebarProvided) => (
                         <div ref={sidebarProvided.innerRef} {...sidebarProvided.droppableProps}>
                           {[...folders]
@@ -226,71 +228,48 @@ export function Sidebar({ className, collapsed = false, ...props }: SidebarProps
                                     <div
                                       ref={drag.innerRef}
                                       {...drag.draggableProps}
+                                      {...drag.dragHandleProps}
                                       className={cn(
-                                        "rounded-lg transition-colors mb-0.5",
-                                        dragSnap.isDragging && "opacity-80 shadow-lg ring-1 ring-primary/30 bg-card"
+                                        "rounded-lg transition-colors mb-0.5 cursor-grab active:cursor-grabbing",
+                                        dragSnap.isDragging && "opacity-80 shadow-lg ring-1 ring-primary/30 bg-card z-50"
                                       )}
                                     >
-                                      {/* 드래그 핸들: 폴더 아이콘 부분에만 */}
-                                      <Droppable droppableId={`folder-${folder.id}`}>
-                                        {(provided, snapshot) => (
-                                          <div
-                                            ref={provided.innerRef}
-                                            {...provided.droppableProps}
-                                            className={cn(
-                                              "rounded-lg transition-colors",
-                                              snapshot.isDraggingOver ? "bg-primary/20 ring-1 ring-primary/50" : ""
-                                            )}
-                                          >
-                                            <Button
-                                              variant="ghost"
-                                              onClick={() => setCurrentView(folder.id)}
-                                              onContextMenu={(e) => {
-                                                e.preventDefault();
-                                                setCtxMenu({ x: e.clientX, y: e.clientY, folderId: folder.id });
-                                              }}
-                                              className={cn(
-                                                "w-full justify-start transition-colors group px-4 h-9 hover:bg-muted/50 rounded-lg",
-                                                isActive ? "font-bold text-foreground" : "font-medium text-muted-foreground hover:text-foreground"
-                                              )}
-                                            >
-                                              {/* 드래그 핸들 표시역 (= 다이아모드 아이콘) */}
-                                              <span
-                                                {...drag.dragHandleProps}
-                                                className="mr-2 text-muted-foreground/30 hover:text-muted-foreground cursor-grab active:cursor-grabbing flex-shrink-0"
-                                                onClick={e => e.stopPropagation()}
-                                                title="드래그하여 순서 변경"
-                                              >
-                                                ⠿
-                                              </span>
-                                              <Folder
-                                                className={cn("mr-2 h-4 w-4 stroke-[2]", !folder.color && (isActive ? "text-foreground" : "text-muted-foreground"))}
-                                                style={folder.color ? { color: folder.color } : undefined}
-                                              />
-                                              <span className="text-[13px] truncate">{folder.name}</span>
-                                              {folder.workspaceType === 'project' && (
-                                                <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-indigo-500/15 text-indigo-400 shrink-0 ml-1">🗂</span>
-                                              )}
-                                              {(() => {
-                                                const liveCount = todos.filter(t => t.folderId === folder.id && !t.isCompleted).length;
-                                                return liveCount > 0 ? (
-                                                  <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-border/40 text-foreground">
-                                                    {liveCount}
-                                                  </span>
-                                                ) : null;
-                                              })()}
-                                              <div
-                                                role="button"
-                                                onClick={(e) => { e.stopPropagation(); deleteFolder(folder.id); }}
-                                                className="ml-2 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500 transition-opacity"
-                                              >
-                                                <Trash2 className="w-3.5 h-3.5" />
-                                              </div>
-                                            </Button>
-                                            <div className="hidden">{provided.placeholder}</div>
-                                          </div>
+                                      <Button
+                                        variant="ghost"
+                                        onClick={() => setCurrentView(folder.id)}
+                                        onContextMenu={(e) => {
+                                          e.preventDefault();
+                                          setCtxMenu({ x: e.clientX, y: e.clientY, folderId: folder.id });
+                                        }}
+                                        className={cn(
+                                          "w-full justify-start transition-colors group px-3 h-9 hover:bg-muted/50 rounded-lg cursor-grab active:cursor-grabbing",
+                                          isActive ? "font-bold text-foreground" : "font-medium text-muted-foreground hover:text-foreground"
                                         )}
-                                      </Droppable>
+                                      >
+                                        <Folder
+                                          className={cn("mr-3 h-4 w-4 stroke-[2] shrink-0", !folder.color && (isActive ? "text-foreground" : "text-muted-foreground"))}
+                                          style={folder.color ? { color: folder.color } : undefined}
+                                        />
+                                        <span className="text-[13px] truncate">{folder.name}</span>
+                                        {folder.workspaceType === 'project' && (
+                                          <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-indigo-500/15 text-indigo-400 shrink-0 ml-1">🗂</span>
+                                        )}
+                                        {(() => {
+                                          const liveCount = todos.filter(t => t.folderId === folder.id && !t.isCompleted).length;
+                                          return liveCount > 0 ? (
+                                            <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-border/40 text-foreground">
+                                              {liveCount}
+                                            </span>
+                                          ) : null;
+                                        })()}
+                                        <div
+                                          role="button"
+                                          onClick={(e) => { e.stopPropagation(); deleteFolder(folder.id); }}
+                                          className="ml-2 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500 transition-opacity"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </div>
+                                      </Button>
                                     </div>
                                   )}
                                 </Draggable>
