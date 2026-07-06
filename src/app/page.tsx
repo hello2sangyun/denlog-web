@@ -356,20 +356,18 @@ export default function Home() {
       )}
       <div className="flex h-screen w-full overflow-hidden bg-background font-sans text-foreground">
 
-        {/* ── Left Sidebar: Separate DragDropContext for folder reorder ── */}
+        {/* ── Left Sidebar ── */}
         {!sidebarHidden && (
           <>
-            <DragDropContext onDragEnd={onDragEnd}>
-              <Sidebar
-                collapsed={sidebarCollapsed}
-                style={!sidebarCollapsed ? { width: `${leftSidebarWidth}px` } : undefined}
-                className={cn(
-                  "flex-shrink-0 border-r",
-                  !isLeftDragging && "transition-all duration-300",
-                  sidebarCollapsed && "w-[56px]"
-                )}
-              />
-            </DragDropContext>
+            <Sidebar
+              collapsed={sidebarCollapsed}
+              style={!sidebarCollapsed ? { width: `${leftSidebarWidth}px` } : undefined}
+              className={cn(
+                "flex-shrink-0 border-r",
+                !isLeftDragging && "transition-all duration-300",
+                sidebarCollapsed && "w-[56px]"
+              )}
+            />
             {!sidebarCollapsed && (
               <div
                 className="w-1.5 cursor-col-resize hover:bg-primary/50 transition-colors bg-border/40 shrink-0 z-30"
