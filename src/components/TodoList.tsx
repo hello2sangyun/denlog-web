@@ -1,6 +1,5 @@
 "use client";
 import React from 'react';
-import { ScrollArea } from './ui/scroll-area';
 import { useStore } from '../store/useStore';
 import { format, isToday } from 'date-fns';
 import { useTranslation } from '@/lib/i18n';
@@ -136,7 +135,7 @@ export function TodoList({ customTodos }: { customTodos?: Todo[] }) {
   });
 
   return (
-    <ScrollArea className="h-full bg-card">
+    <div className="h-full overflow-y-auto bg-card">
       <Droppable droppableId="todolist-container" isDropDisabled={false}>
         {(provided) => (
           <div 
@@ -362,6 +361,6 @@ export function TodoList({ customTodos }: { customTodos?: Todo[] }) {
       </Droppable>
       {/* Confetti overlay */}
       <ConfettiBurst visible={confettiVisible} onDone={() => setConfettiVisible(false)} />
-    </ScrollArea>
+    </div>
   );
 }

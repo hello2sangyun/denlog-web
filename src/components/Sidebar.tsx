@@ -31,6 +31,7 @@ export function Sidebar({ className, collapsed = false, ...props }: SidebarProps
   // HTML5 drag state
   const dragFolderRef = useRef<string | null>(null);
   const [dragOverId, setDragOverId] = React.useState<string | null>(null);
+  const [dragOverPos, setDragOverPos] = React.useState<'before' | 'after'>('after');
 
   useEffect(() => {
     loadData();
@@ -217,9 +218,18 @@ export function Sidebar({ className, collapsed = false, ...props }: SidebarProps
                               onDragOver={(e) => {
                                 e.preventDefault();
                                 e.dataTransfer.dropEffect = 'move';
+                                // 마우스 위치로 위/아래 판단
+                                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                const pos = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
                                 setDragOverId(folder.id);
+                                setDragOverPos(pos);
                               }}
-                              onDragLeave={() => setDragOverId(null)}
+                              onDragLeave={(e) => {
+                                // 자식 요소로 이동 시 무시
+                                if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) {
+                                  setDragOverId(null);
+                                }
+                              }}
                               onDrop={(e) => {
                                 e.preventDefault();
                                 setDragOverId(null);
@@ -227,18 +237,21 @@ export function Sidebar({ className, collapsed = false, ...props }: SidebarProps
                                 if (!fromId || fromId === folder.id) return;
                                 const sorted = [...folders].sort((a, b) => (a.sortOrder ?? 99999) - (b.sortOrder ?? 99999));
                                 const fromIdx = sorted.findIndex(f => f.id === fromId);
-                                const toIdx = sorted.findIndex(f => f.id === folder.id);
+                                let toIdx = sorted.findIndex(f => f.id === folder.id);
                                 if (fromIdx === -1 || toIdx === -1) return;
                                 const reordered = [...sorted];
                                 const [moved] = reordered.splice(fromIdx, 1);
-                                reordered.splice(toIdx, 0, moved);
+                                // after 이면 toIdx 재계산 (splice 후 인덱스 변화 고려)
+                                const insertAt = dragOverPos === 'before' ? toIdx : toIdx + 1;
+                                reordered.splice(insertAt > fromIdx ? insertAt - 1 : insertAt, 0, moved);
                                 reorderFolders(reordered.map(f => f.id));
                                 dragFolderRef.current = null;
                               }}
                               onDragEnd={() => { setDragOverId(null); dragFolderRef.current = null; }}
                               className={cn(
-                                "rounded-lg transition-colors mb-0.5 cursor-grab active:cursor-grabbing",
-                                isDragOver && "ring-2 ring-primary/50 bg-primary/5"
+                                "relative mb-0.5 cursor-grab active:cursor-grabbing",
+                                isDragOver && dragOverPos === 'before' && "border-t-2 border-primary",
+                                isDragOver && dragOverPos === 'after' && "border-b-2 border-primary",
                               )}
                             >
                               <div
