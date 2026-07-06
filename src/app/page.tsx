@@ -478,6 +478,7 @@ export default function Home() {
                     </>
                   )}
                 </div>
+              </div>
             )}
 
             {/* Search — Cmd+K to focus */}
