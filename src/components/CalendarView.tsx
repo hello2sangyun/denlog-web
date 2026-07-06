@@ -49,9 +49,18 @@ const addDays   = (d: Date, n: number) => { const r = new Date(d); r.setDate(r.g
 const addMonths = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth() + n, 1);
 const mStart    = (d: Date)            => new Date(d.getFullYear(), d.getMonth(), 1);
 
-/** dueDate 정규화 (릴리즈 번들 pe()) */
-const getDue = (t: Todo): Date | null =>
-  t.dueDate ? (t.dueDate instanceof Date ? t.dueDate : new Date(t.dueDate)) : null;
+/** dueDate 정규화 — 타임존 버그 수정:
+ *  "2026-07-05" 같은 날짜 전용 문자열은 new Date()가 UTC 자정으로 파싱해서
+ *  UTC+2 이상 타임존에서 하루 밀림 현상이 발생함.
+ *  → 날짜 파트만 추출해 로컬 자정으로 생성.
+ */
+const getDue = (t: Todo): Date | null => {
+  if (!t.dueDate) return null;
+  const d = t.dueDate instanceof Date ? t.dueDate : new Date(t.dueDate);
+  if (isNaN(d.getTime())) return null;
+  // 로컬 날짜로 재정규화 (year/month/date 기준)
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+};
 
 /** 우선순위 dot color (릴리즈 번들 정확 복원) */
 const dotColor = (t: Todo) =>
@@ -405,22 +414,25 @@ function WeekView({
           {days.map((day, dayIdx) => {
             const isTod = isSameDay(day, today);
 
-            // 릴리즈 번들 pn 필터: isSameDay(due, day) OR (오늘 컬럼 AND overdue)
+            // 마감일이 정확히 일치하는 할일만 표시 (overdue 허지 안 함)
             const dayTodos = storeTodos.filter(t => {
               const due = getDue(t);
               if (!due) return false;
-              return (
-                isSameDay(due, day) ||
-                (isTod && !t.isCompleted && due.getTime() < new Date().setHours(0, 0, 0, 0))
-              );
+              return isSameDay(due, day);
             });
 
-            const top3     = dayTodos.filter(t => t.top3Rank != null);
-            // 블록 pills: 오늘 컬럼에만 표시
-            const blocks   = isTod
-              ? BLOCK_DEFS.map(b => ({ ...b, tasks: sortTodos(dayTodos.filter(t => t.timeBlockSlot === b.slot)) }))
+            // TOP3: 날짜 무관, 오늘 컬럼에만 표시
+            const top3 = isTod
+              ? storeTodos
+                  .filter(t => t.top3Rank != null)
+                  .sort((a, b) => (a.top3Rank ?? 9) - (b.top3Rank ?? 9))
               : [];
-            // 미배정: 오늘=(!slot&&!top3), 다른날=(!top3)
+
+            // 블록 pills: 오늘 컬럼에만, TOP3와 겹치지 않게
+            const blocks = isTod
+              ? BLOCK_DEFS.map(b => ({ ...b, tasks: sortTodos(dayTodos.filter(t => t.timeBlockSlot === b.slot && t.top3Rank == null)) }))
+              : [];
+            // 미배정: TOP3·블록 제외
             const unblocked = sortTodos(
               isTod
                 ? dayTodos.filter(t => !t.timeBlockSlot && t.top3Rank == null)
@@ -547,17 +559,18 @@ function MonthView({
               const isTod   = isSameDay(cell, today);
               const inMonth = cell.getMonth() === month.getMonth();
 
-              // pn 과 동일 필터
+              // 마감일이 일치하는 할일만
               const cellTodos = storeTodos.filter(t => {
                 const due = getDue(t);
-                if (!due) return false;
-                return (
-                  isSameDay(due, cell) ||
-                  (isTod && !t.isCompleted && due.getTime() < new Date().setHours(0, 0, 0, 0))
-                );
+                return !!due && isSameDay(due, cell);
               });
 
-              const top3    = cellTodos.filter(t => t.top3Rank != null);
+              // TOP3: 날짜 무관, 오늘 셀에만 표시
+              const top3 = isTod
+                ? storeTodos
+                    .filter(t => t.top3Rank != null)
+                    .sort((a, b) => (a.top3Rank ?? 9) - (b.top3Rank ?? 9))
+                : cellTodos.filter(t => t.top3Rank != null);
               const others  = sortTodos(cellTodos.filter(t => t.top3Rank == null));
               const maxShow = top3.length > 0 ? 2 : 3;
               const overflow = Math.max(0, others.length - maxShow);

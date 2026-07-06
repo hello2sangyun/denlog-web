@@ -6,7 +6,7 @@ import { format, isToday } from 'date-fns';
 import { useTranslation } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { AlertCircle, Tag, CalendarClock, MoreVertical, Check, CheckCircle2, MessageSquare, Paperclip } from 'lucide-react';
+import { AlertCircle, Tag, CalendarClock, MoreVertical, Check, CheckCircle2, MessageSquare, Paperclip, Plus, CheckCheck, Trash2, FolderInput } from 'lucide-react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import type { Todo } from '../types';
 
@@ -126,7 +126,12 @@ export function TodoList({ customTodos }: { customTodos?: Todo[] }) {
       const pB = pMap[b.priority || 'none'] ?? 3;
       if (pA !== pB) return pA - pB;
     }
-    // Default
+    // Default: sortOrder(수동 정렬) 우선, 없으면 createdAt 역순
+    const aOrder = a.sortOrder ?? null;
+    const bOrder = b.sortOrder ?? null;
+    if (aOrder !== null && bOrder !== null) return aOrder - bOrder;
+    if (aOrder !== null) return -1;
+    if (bOrder !== null) return 1;
     return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
   });
 
@@ -140,10 +145,17 @@ export function TodoList({ customTodos }: { customTodos?: Todo[] }) {
             {...provided.droppableProps}
           >
             {filteredTodos.length === 0 && (
-              <div className="flex-1 flex flex-col items-center justify-center h-[40vh] text-center max-w-sm mx-auto opacity-50 mt-10">
-                <CheckCircle2 className="w-16 h-16 mb-4 text-muted-foreground" />
-                <h3 className="text-xl font-bold mb-2">{t('empty.allCaughtUp')}</h3>
-                <p className="text-sm font-medium">{t('empty.allCaughtUpDesc')}</p>
+              <div className="flex-1 flex flex-col items-center justify-center h-[40vh] text-center max-w-sm mx-auto mt-10">
+                <CheckCircle2 className="w-14 h-14 mb-4 text-muted-foreground/30" />
+                <h3 className="text-xl font-bold mb-2 text-foreground">{t('empty.allCaughtUp')}</h3>
+                <p className="text-sm font-medium text-muted-foreground/60 mb-5">{t('empty.allCaughtUpDesc')}</p>
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent('open-create-todo'))}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-[13px] font-bold hover:bg-primary/90 transition-colors shadow-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  {t('action.addTask') || '+ 할일 추가'}
+                </button>
               </div>
             )}
         
@@ -285,7 +297,14 @@ export function TodoList({ customTodos }: { customTodos?: Todo[] }) {
                             {unreadCommentCounts[todo.id]}
                           </span>
                         )}
-                        <button className="text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          className="text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity relative"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            useStore.getState().setTodoMenu({ id: todo.id, x: rect.right, y: rect.bottom });
+                          }}
+                        >
                           <MoreVertical className="w-4 h-4" />
                         </button>
                       </div>

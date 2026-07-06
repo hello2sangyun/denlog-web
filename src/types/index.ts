@@ -74,6 +74,7 @@ export interface Folder {
   collaborators: Collaborator[];
   todoCount: number;
   createdAt: Date;
+  sortOrder?: number | null;          // 수동 정렬
   // ── Project Workspace 확장 필드 (모바일앱 동일 DB) ────────────────────────────────
   workspaceType?: 'personal' | 'project'; // DB: workspace_type
   description?: string | null;            // DB: description

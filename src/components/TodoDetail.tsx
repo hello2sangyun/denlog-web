@@ -8,7 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMe
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Calendar as CalendarComponent } from './ui/calendar';
-import { X, Share2, Trash2, Calendar, Folder, Tag as TagIcon, User, Send, CheckCircle2, PlayCircle, Wand2, Paperclip, Eye, Clock, Bell, Briefcase, UserCheck } from 'lucide-react';
+import { X, Share2, Trash2, Calendar, Folder, Tag as TagIcon, User, Send, CheckCircle2, PlayCircle, Wand2, Paperclip, Eye, Clock, Bell, Briefcase, UserCheck, ChevronDown } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useTranslation } from '@/lib/i18n';
 import { format } from 'date-fns';
@@ -24,7 +24,39 @@ export function TodoDetail() {
   const [assigneeSearch, setAssigneeSearch] = React.useState('');
   const [viewerSearch, setViewerSearch] = React.useState('');
   const [mentionQuery, setMentionQuery] = React.useState<string | null>(null);
-  const [mentionAnchor, setMentionAnchor] = React.useState(0); // position of @ in text
+  const [mentionAnchor, setMentionAnchor] = React.useState(0);
+  // ── 인라인 제목 편집 ──
+  const [editingTitle, setEditingTitle] = React.useState(false);
+  const [localTitle, setLocalTitle] = React.useState('');
+  const titleInputRef = React.useRef<HTMLInputElement>(null);
+  // ── 커스텀 토스트 ──
+  const [toast, setToast] = React.useState<string | null>(null);
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500); };
+  // ── 삭제 확인 ──
+  const [confirmDelete, setConfirmDelete] = React.useState(false);
+  // ── 첨부파일 업로드 ──
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  // ── 고급 설정 접기/펼치기 ──
+  const [showAdvanced, setShowAdvanced] = React.useState(false);
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length || !todo) return;
+    const uploaded = await Promise.all(files.map(async (file) => {
+      const ext = file.name.split('.').pop();
+      const path = `attachments/${todo.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { data, error } = await supabase.storage.from('attachments').upload(path, file, { upsert: true });
+      if (error) return null;
+      const { data: urlData } = supabase.storage.from('attachments').getPublicUrl(path);
+      return { name: file.name, url: urlData.publicUrl, type: file.type };
+    }));
+    const valid = uploaded.filter(Boolean) as { name: string; url: string; type: string }[];
+    if (valid.length > 0) {
+      const existing = todo.attachments || [];
+      updateTodo(todo.id, { attachments: [...existing, ...valid] });
+      showToast(`📎 ${valid.length}개 파일 쳊부됨`);
+    }
+    e.target.value = '';
+  };
   const commentInputRef = React.useRef<HTMLInputElement>(null);
   const memoRef = React.useRef<HTMLTextAreaElement>(null);
   
@@ -255,25 +287,54 @@ export function TodoDetail() {
 
   return (
     <div className="h-full flex flex-col bg-background shadow-xl border-l border-border/30">
+      {/* ── 커스텀 토스트 ── */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] animate-in fade-in slide-in-from-bottom-4 duration-200">
+          <div className="flex items-center gap-2 bg-foreground text-background rounded-2xl shadow-2xl px-5 py-3 text-sm font-semibold">
+            <span>{toast}</span>
+          </div>
+        </div>
+      )}
+      {/* ── 삭제 확인 모달 ── */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-background border border-border rounded-2xl shadow-2xl p-6 w-80 animate-in zoom-in-95 duration-200">
+            <h3 className="text-[16px] font-bold text-foreground mb-1">{t('action.delete')} 할일</h3>
+            <p className="text-[13px] text-muted-foreground mb-5">"이 할일을 삭제할까요? 이 작업은 되돌릴 수 없습니다."</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setConfirmDelete(false)} className="px-4 py-2 text-[13px] font-semibold rounded-lg border border-border hover:bg-muted transition-colors">
+                취소
+              </button>
+              <button
+                onClick={async () => {
+                  setConfirmDelete(false);
+                  await deleteTodos([todo.id]);
+                  setSelectedTodo(null);
+                }}
+                className="px-4 py-2 text-[13px] font-semibold rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
+              >
+                {t('action.delete')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <header className="h-14 flex items-center justify-between px-6 shrink-0 bg-transparent z-10 border-b border-border/20">
         <div className="flex items-center gap-2 text-muted-foreground/60 hover:text-foreground cursor-pointer transition-colors" onClick={() => setSelectedTodo(null)}>
           <X className="w-4 h-4 stroke-[2]" />
-          <span className="text-[12px] font-semibold tracking-wide">Task Details</span>
+          <span className="text-[12px] font-semibold tracking-wide">{t('detail.taskDetails') || 'Task Details'}</span>
         </div>
         <div className="flex gap-3 text-muted-foreground/60">
-          <button 
-            onClick={() => { navigator.clipboard.writeText(window.location.href); alert('Link copied to clipboard!'); }}
+          <button
+            title="링크 복사"
+            onClick={() => { navigator.clipboard.writeText(window.location.href); showToast('🔗 링크가 클립보드에 복사되었습니다'); }}
             className="hover:text-foreground transition-colors p-1.5 rounded-md hover:bg-muted"
           >
             <Share2 className="w-4 h-4 stroke-[2]" />
           </button>
-          <button 
-            onClick={async () => {
-              if (confirm('Are you sure you want to delete this task?')) {
-                await deleteTodos([todo.id]);
-                setSelectedTodo(null);
-              }
-            }}
+          <button
+            title="할일 삭제"
+            onClick={() => setConfirmDelete(true)}
             className="hover:text-red-500 transition-colors p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-950/30"
           >
             <Trash2 className="w-4 h-4 stroke-[2]" />
@@ -305,9 +366,42 @@ export function TodoDetail() {
               </Select>
             </div>
             
-            <h2 className={cn("text-[28px] font-extrabold tracking-tight leading-tight mb-6", todo.isCompleted && "line-through text-muted-foreground/60")}>
-              {todo.title}
-            </h2>
+            {/* 인라인 편집 가능한 제목 */}
+            {editingTitle ? (
+              <input
+                ref={titleInputRef}
+                value={localTitle}
+                onChange={e => setLocalTitle(e.target.value)}
+                onBlur={() => {
+                  if (localTitle.trim() && localTitle.trim() !== todo.title) {
+                    updateTodo(todo.id, { title: localTitle.trim() });
+                  }
+                  setEditingTitle(false);
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { e.currentTarget.blur(); }
+                  if (e.key === 'Escape') { setLocalTitle(todo.title); setEditingTitle(false); }
+                }}
+                className={cn(
+                  "w-full text-[28px] font-extrabold tracking-tight leading-tight mb-6",
+                  "bg-transparent border-0 border-b-2 border-primary outline-none px-0 py-0",
+                  todo.isCompleted && "line-through text-muted-foreground/60"
+                )}
+                autoFocus
+              />
+            ) : (
+              <h2
+                onClick={() => { setLocalTitle(todo.title); setEditingTitle(true); setTimeout(() => titleInputRef.current?.focus(), 0); }}
+                title="클릭하여 편집"
+                className={cn(
+                  "text-[28px] font-extrabold tracking-tight leading-tight mb-6 cursor-text",
+                  "hover:bg-muted/30 rounded-lg px-1 -mx-1 transition-colors",
+                  todo.isCompleted && "line-through text-muted-foreground/60"
+                )}
+              >
+                {todo.title}
+              </h2>
+            )}
           </div>
 
           {/* Properties */}
@@ -402,35 +496,46 @@ export function TodoDetail() {
                 </label>
               </div>
             </div>
+            {/* ── 고급 설정 (Role, Assignee, Viewers) ─ 접글 수 있음 ── */}
+            <button
+              onClick={() => setShowAdvanced(v => !v)}
+              className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground/60 hover:text-muted-foreground transition-colors pt-1"
+            >
+              <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", showAdvanced && "rotate-180")} />
+              {showAdvanced ? '고급 설정 접기' : '고급 설정 (Role, Assignee, Viewers)'}
+            </button>
 
-            {/* Todo Role */}
-            <div className="flex items-center min-h-[28px] group">
-              <div className="w-[120px] shrink-0 flex items-center gap-2 text-muted-foreground/70 text-[12px] font-medium">
-                <UserCheck className="w-3.5 h-3.5" /> Role
-              </div>
-              <div className="flex-1">
-                <Select
-                  value={(todo as any).todoRole || 'own'}
-                  onValueChange={val => updateTodo(todo.id, { ...(todo as any), todoRole: val })}
-                >
-                  <SelectTrigger className="h-7 w-auto px-2 -ml-2 bg-transparent border-0 focus:ring-0 shadow-none text-[13px] font-medium text-foreground hover:bg-muted/50 rounded-md transition-colors">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl shadow-lg shadow-black/5 border-border/30">
-                    <SelectItem value="own" className="text-[13px] cursor-pointer">My Task</SelectItem>
-                    <SelectItem value="client_request" className="text-[13px] cursor-pointer">Client Request</SelectItem>
-                    <SelectItem value="delegated" className="text-[13px] cursor-pointer">Delegated</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+            {showAdvanced && (
+              <div className="flex flex-col gap-3.5 border-t border-border/10 pt-3">
 
-            {/* Assignee */}
-            <div className="flex items-center min-h-[28px] group">
-              <div className="w-[120px] shrink-0 flex items-center gap-2 text-muted-foreground/70 text-[12px] font-medium">
-                <User className="w-3.5 h-3.5" /> Assignee
-              </div>
-              <div className="flex-1 flex items-center gap-1.5 flex-wrap px-1 -ml-1">
+                {/* Todo Role */}
+                <div className="flex items-center min-h-[28px] group">
+                  <div className="w-[120px] shrink-0 flex items-center gap-2 text-muted-foreground/70 text-[12px] font-medium">
+                    <UserCheck className="w-3.5 h-3.5" /> Role
+                  </div>
+                  <div className="flex-1">
+                    <Select
+                      value={(todo as any).todoRole || 'own'}
+                      onValueChange={val => updateTodo(todo.id, { ...(todo as any), todoRole: val })}
+                    >
+                      <SelectTrigger className="h-7 w-auto px-2 -ml-2 bg-transparent border-0 focus:ring-0 shadow-none text-[13px] font-medium text-foreground hover:bg-muted/50 rounded-md transition-colors">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl shadow-lg shadow-black/5 border-border/30">
+                        <SelectItem value="own" className="text-[13px] cursor-pointer">My Task</SelectItem>
+                        <SelectItem value="client_request" className="text-[13px] cursor-pointer">Client Request</SelectItem>
+                        <SelectItem value="delegated" className="text-[13px] cursor-pointer">Delegated</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Assignee */}
+                <div className="flex items-center min-h-[28px] group">
+                  <div className="w-[120px] shrink-0 flex items-center gap-2 text-muted-foreground/70 text-[12px] font-medium">
+                    <User className="w-3.5 h-3.5" /> Assignee
+                  </div>
+                  <div className="flex-1 flex items-center gap-1.5 flex-wrap px-1 -ml-1">
                 {(todo.assigneeIds || []).map(id => {
                   const user = usersMap[id];
                   const initial = user?.name ? user.name[0] : id.substring(0, 2).toUpperCase();
@@ -491,15 +596,15 @@ export function TodoDetail() {
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
-              </div>
-            </div>
+                  </div>
+                </div>
 
-            {/* Viewers */}
-            <div className="flex items-center min-h-[28px] group">
-              <div className="w-[120px] shrink-0 flex items-center gap-2 text-muted-foreground/70 text-[12px] font-medium">
-                <Eye className="w-3.5 h-3.5" /> Viewers
-              </div>
-              <div className="flex-1 flex items-center gap-1.5 flex-wrap px-1 -ml-1">
+                {/* Viewers */}
+                <div className="flex items-center min-h-[28px] group">
+                  <div className="w-[120px] shrink-0 flex items-center gap-2 text-muted-foreground/70 text-[12px] font-medium">
+                    <Eye className="w-3.5 h-3.5" /> Viewers
+                  </div>
+                  <div className="flex-1 flex items-center gap-1.5 flex-wrap px-1 -ml-1">
                 {(todo.viewerIds || []).map(id => {
                   const user = usersMap[id];
                   const initial = user?.name ? user.name[0] : id.substring(0, 2).toUpperCase();
@@ -560,8 +665,11 @@ export function TodoDetail() {
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
+                  </div>
+                </div>
+
               </div>
-            </div>
+            )}{/* end showAdvanced */}
 
             {/* Tags */}
             <div className="flex items-center min-h-[28px] group">
@@ -605,10 +713,19 @@ export function TodoDetail() {
               className="w-full text-[14px] text-foreground bg-transparent border-none p-0 focus:ring-0 resize-none min-h-[100px] outline-none overflow-hidden placeholder:text-muted-foreground/40 leading-relaxed"
             />
           </div>
-          {/* Attachments */}
-          {todo.attachments && todo.attachments.length > 0 && (
-            <div className="space-y-2 pt-1">
+          {/* Attachments — 업로드 버튼 포함 */}
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center justify-between">
               <h3 className="text-[10px] font-bold text-muted-foreground/80 uppercase tracking-widest">Attachments</h3>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-primary transition-colors"
+              >
+                <Paperclip className="w-3 h-3" /> + 첨부
+              </button>
+              <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileUpload} />
+            </div>
+            {todo.attachments && todo.attachments.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {todo.attachments.map((file, idx) => {
                   const isImage = file.type?.startsWith('image/') || file.name.match(/\.(jpeg|jpg|gif|png|webp)$/i);
@@ -624,8 +741,16 @@ export function TodoDetail() {
                   );
                 })}
               </div>
-            </div>
-          )}
+            )}
+            {(!todo.attachments || todo.attachments.length === 0) && (
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full border-2 border-dashed border-border/40 rounded-lg py-3 text-[12px] text-muted-foreground/60 hover:border-primary/40 hover:text-primary/60 transition-colors"
+              >
+                + 파일 첨부
+              </button>
+            )}
+          </div>
 
           {/* ── CLIENT APPROVAL 카드 (todoRole==='client_request'일 때) ──────────── */}
           {todo.todoRole === 'client_request' && (() => {

@@ -53,6 +53,9 @@ interface AppState {
   activeChatUser: { id: string; name: string; avatarUrl: string | null } | null;
   previousChatUser: { id: string; name: string; avatarUrl: string | null } | null;
   realtimeSetupUserId: string | null;
+  // ── 할일 컨텍스트 메뉴 ──
+  todoMenu: { id: string; x: number; y: number } | null;
+  setTodoMenu: (menu: { id: string; x: number; y: number } | null) => void;
   
   setUser: (user: UserProfile | null) => void;
   setTodos: (todos: Todo[]) => void;
@@ -69,6 +72,8 @@ interface AppState {
   deleteTodos: (ids: string[]) => Promise<void>;
   completeTodos: (ids: string[], isCompleted: boolean) => Promise<void>;
   moveTodos: (ids: string[], folderId: string | null) => Promise<void>;
+  reorderTodos: (orderedIds: string[]) => Promise<void>;
+  reorderFolders: (orderedIds: string[]) => Promise<void>;
   setSelectedRecording: (id: string | null) => void;
   setSearchQuery: (query: string) => void;
   setTodoSort: (sort: 'default' | 'dueDate' | 'priority') => void;
@@ -161,6 +166,8 @@ export const useStore = create<AppState>((set, get) => ({
   activeChatUser: null,
   previousChatUser: null,
   realtimeSetupUserId: null,
+  todoMenu: null,
+  setTodoMenu: (menu) => set({ todoMenu: menu }),
   
   // Settings Default State
   language: 'ko',
@@ -467,7 +474,44 @@ export const useStore = create<AppState>((set, get) => ({
     const { error } = await supabase.from('todos').update({ folder_id: folderId }).in('id', ids);
     if (error) console.error('Error moving todos', error);
   },
-  
+
+  reorderTodos: async (orderedIds) => {
+    // 낙관적 업데이트: 로컬 순서 즉시 반영
+    set(state => {
+      const idxMap = new Map(orderedIds.map((id, i) => [id, i]));
+      return {
+        todos: [...state.todos].sort((a, b) => {
+          const ai = idxMap.has(a.id) ? idxMap.get(a.id)! : 99999;
+          const bi = idxMap.has(b.id) ? idxMap.get(b.id)! : 99999;
+          return ai - bi;
+        }).map((t, i) => idxMap.has(t.id) ? { ...t, sortOrder: i } : t),
+      };
+    });
+    // Supabase 배치 저장
+    const updates = orderedIds.map((id, i) => ({ id, sort_order: i }));
+    for (const u of updates) {
+      supabase.from('todos').update({ sort_order: u.sort_order }).eq('id', u.id).then();
+    }
+  },
+
+  reorderFolders: async (orderedIds) => {
+    // 낙관적 업데이트
+    set(state => {
+      const idxMap = new Map(orderedIds.map((id, i) => [id, i]));
+      return {
+        folders: [...state.folders].sort((a, b) => {
+          const ai = idxMap.has(a.id) ? idxMap.get(a.id)! : 99999;
+          const bi = idxMap.has(b.id) ? idxMap.get(b.id)! : 99999;
+          return ai - bi;
+        }).map((f, i) => idxMap.has(f.id) ? { ...f, sortOrder: i } : f),
+      };
+    });
+    // Supabase 배치 저장 (sort_order 컬럼 없으면 무시됨)
+    for (const [i, id] of orderedIds.entries()) {
+      supabase.from('folders').update({ sort_order: i } as any).eq('id', id).then();
+    }
+  },
+
   updateTodo: async (id, updates) => {
     // 1. Optimistic local update
     set((state) => ({

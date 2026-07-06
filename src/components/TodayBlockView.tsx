@@ -328,11 +328,11 @@ export function TodayBlockView() {
       {/* ── Blocks 모드 ── */}
       {plannerMode === 'blocks' && (
     <DragDropContext onDragEnd={handleDragEnd}>
-      {/* ── Main flex row (left:flex-1, right:flex-1 — exact release ratio) ── */}
-      <div className="flex gap-3 h-full overflow-hidden">
+      {/* ── Main layout: mobile=vertical, desktop=horizontal 2-column ── */}
+      <div className="flex flex-col md:flex-row gap-3 h-full overflow-hidden overflow-y-auto md:overflow-y-hidden">
 
         {/* ── LEFT PANEL: TOP3 + Time Blocks ─────────────────────────────── */}
-        <div className="flex-1 flex flex-col gap-2 overflow-y-auto min-w-0 py-3 pl-3 pr-1">
+        <div className="flex-1 flex flex-col gap-2 md:overflow-y-auto min-w-0 py-3 pl-3 pr-1">
 
           {/* TODAY'S TOP 3 */}
           <div className="rounded-xl overflow-hidden shrink-0 relative border border-amber-500/15 bg-gradient-to-br from-amber-500/[0.03] via-card to-card/50 shadow-sm shadow-amber-500/5">

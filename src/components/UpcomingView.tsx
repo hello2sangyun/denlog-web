@@ -5,13 +5,13 @@ import { ScrollArea } from './ui/scroll-area';
 import { isAfter, startOfDay, addDays, isBefore, isSameDay, endOfWeek, differenceInCalendarDays } from 'date-fns';
 import { useTranslation } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
-import { Mail, Video, CheckCircle, Smartphone, Tag, MoreVertical, CalendarClock, Check } from 'lucide-react';
+import { Mail, Video, CheckCircle, Smartphone, Tag, MoreVertical, CalendarClock, Check, Plus } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import type { Todo } from '../types';
 
 export function UpcomingView() {
-  const { todos, updateTodo, selectedTodoId, setSelectedTodo, selectedTodoIds, toggleTodoSelection, usersMap, todoSort } = useStore();
+  const { todos, updateTodo, selectedTodoId, setSelectedTodo, selectedTodoIds, toggleTodoSelection, usersMap, todoSort, setTodoMenu } = useStore();
   const { t } = useTranslation();
 
   const now = startOfDay(new Date());
@@ -60,12 +60,19 @@ export function UpcomingView() {
   const renderGroup = (id: string, title: string, count: number, groupTodos: Todo[], dotColor: string = "bg-primary") => {
     if (groupTodos.length === 0) return null;
     return (
-      <div id={id} className="mb-8 relative px-6">
+      <div id={id} className="mb-8 relative px-6 group">
         {/* Header */}
         <div className="flex items-center gap-2 mb-3 relative -left-1">
           <div className={cn("w-[7px] h-[7px] rounded-full", dotColor)} />
           <h3 className="font-bold text-[15px]">{title}</h3>
           <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold leading-tight">{count}</span>
+          {/* 섹션별 + 버튼 */}
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('open-create-todo'))}
+            className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors opacity-0 group-hover:opacity-100"
+          >
+            <Plus className="w-3 h-3" /> 추가
+          </button>
         </div>
         
         {/* Task List container to form continuous block */}
@@ -133,9 +140,16 @@ export function UpcomingView() {
                          )}>
                            {todo.title}
                          </span>
-                         <button className="text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                           <MoreVertical className="w-4 h-4" />
-                         </button>
+                         <button
+                          className="text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setTodoMenu({ id: todo.id, x: rect.right, y: rect.bottom });
+                          }}
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
                        </div>
                        
                        {todo.memo && (
@@ -252,10 +266,17 @@ export function UpcomingView() {
               {renderGroup("group-later", t('filter.later'), laterTodos.length, laterTodos, "bg-primary")}
               
               {upcomingTodos.length === 0 && (
-                <div className="flex-1 flex flex-col items-center justify-center h-[40vh] text-center max-w-sm mx-auto opacity-50 mt-10">
-                  <CalendarClock className="w-16 h-16 mb-4 text-muted-foreground" />
-                  <h3 className="text-xl font-bold mb-2">{t('empty.noUpcoming')}</h3>
-                  <p className="text-sm font-medium">{t('empty.noUpcomingDesc')}</p>
+                <div className="flex-1 flex flex-col items-center justify-center h-[40vh] text-center max-w-sm mx-auto mt-10">
+                  <CalendarClock className="w-14 h-14 mb-4 text-muted-foreground/30" />
+                  <h3 className="text-xl font-bold mb-2 text-foreground">{t('empty.noUpcoming')}</h3>
+                  <p className="text-sm font-medium text-muted-foreground/60 mb-5">{t('empty.noUpcomingDesc')}</p>
+                  <button
+                    onClick={() => window.dispatchEvent(new CustomEvent('open-create-todo'))}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-[13px] font-bold hover:bg-primary/90 transition-colors shadow-sm"
+                  >
+                    <Plus className="w-4 h-4" />
+                    {t('action.addTask') || '+ 할일 추가'}
+                  </button>
                 </div>
               )}
               {provided.placeholder}

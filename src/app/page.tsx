@@ -20,7 +20,7 @@ import { LoginOverlay } from '@/components/LoginOverlay';
 import { AiReviewBanner } from '@/components/AiReviewBanner';
 import EventPopupModal from '@/components/EventPopupModal';
 import { TodayBlockView } from '@/components/TodayBlockView';
-import { Bell, Search, Settings, LayoutList, KanbanSquare, Mic, Sun, Moon, Menu, X, Folder, ArrowDownUp, Check, FolderKanban, FolderOpen } from 'lucide-react';
+import { Bell, Search, Settings, LayoutList, KanbanSquare, Mic, Sun, Moon, Menu, X, Folder, ArrowDownUp, Check, FolderKanban, FolderOpen, CheckCheck, Trash2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,15 +46,18 @@ function useWindowWidth() {
 }
 
 export default function Home() {
-  const { user, isLoading, isInitialLoadCompleted, currentView, searchQuery, setSearchQuery, folders, viewMode, setViewMode, todoSort, setTodoSort, loadData, notifications, selectedTodoId, selectedRecordingId, activeChatUser, selectedTodoIds, clearTodoSelection, deleteTodos, completeTodos, updateTodo, markNotificationRead, markAllNotificationsRead } = useStore();
+  const { user, isLoading, isInitialLoadCompleted, currentView, searchQuery, setSearchQuery, folders, viewMode, setViewMode, todoSort, setTodoSort, loadData, notifications, selectedTodoId, selectedRecordingId, activeChatUser, selectedTodoIds, clearTodoSelection, deleteTodos, completeTodos, updateTodo, markNotificationRead, markAllNotificationsRead, todoMenu, setTodoMenu, todos, reorderTodos, reorderFolders } = useStore();
   const { theme, setTheme } = useTheme();
   const [isNotifOpen, setIsNotifOpen] = React.useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [dragToast, setDragToast] = React.useState<string | null>(null);
   const [isShaking, setIsShaking] = React.useState(false);
-  const [isBlockMode, setIsBlockMode] = React.useState(true); // Today의 기본 Block 모드
+  const [isBlockMode, setIsBlockMode] = React.useState(true);
+  const [avatarMenuOpen, setAvatarMenuOpen] = React.useState(false);
   const dragToastTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const notifRef = React.useRef<HTMLDivElement>(null);
+  const avatarMenuRef = React.useRef<HTMLDivElement>(null);
+  const searchRef = React.useRef<HTMLInputElement>(null);
 
   // ── Responsive breakpoints ─────────────────────────────────────────────
   const windowWidth = useWindowWidth();
@@ -138,14 +141,60 @@ export default function Home() {
       if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
         setIsNotifOpen(false);
       }
+      if (avatarMenuRef.current && !avatarMenuRef.current.contains(event.target as Node)) {
+        setAvatarMenuOpen(false);
+      }
     };
-    if (isNotifOpen) {
+    if (isNotifOpen || avatarMenuOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isNotifOpen]);
+  }, [isNotifOpen, avatarMenuOpen]);
+
+  // ── 키보드 단욵키 ──
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.includes('Mac');
+      const mod = isMac ? e.metaKey : e.ctrlKey;
+
+      // Cmd+N → 할일 생성 (이미 CreateTodoDialog에서 처리 중 — 충돌 방지용)
+      if (mod && e.key === 'n') { e.preventDefault(); return; }
+
+      // Cmd+K → 검색 포커스
+      if (mod && e.key === 'k') {
+        e.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+        return;
+      }
+
+      // Escape → 다양한 패널 닫기
+      if (e.key === 'Escape') {
+        if (todoMenu) { setTodoMenu(null); return; }
+        if (avatarMenuOpen) { setAvatarMenuOpen(false); return; }
+        if (isNotifOpen) { setIsNotifOpen(false); return; }
+        // 선택된 할일 상세 패널 닫기
+        const { selectedTodoId, setSelectedTodo } = useStore.getState();
+        if (selectedTodoId) { setSelectedTodo(null); return; }
+        return;
+      }
+
+      // Space → 멀티선택 할일 일괄 완료
+      if (e.key === ' ' && selectedTodoIds.length > 0) {
+        const target = e.target as HTMLElement;
+        const isInput = ['INPUT','TEXTAREA'].includes(target.tagName) || target.isContentEditable;
+        if (!isInput) {
+          e.preventDefault();
+          completeTodos(selectedTodoIds, true);
+          clearTodoSelection();
+        }
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [todoMenu, avatarMenuOpen, isNotifOpen, selectedTodoIds, completeTodos, clearTodoSelection, setTodoMenu]);
 
   // ── Shake event listener ──────────────────────────────────────────────────
   React.useEffect(() => {
@@ -176,8 +225,38 @@ export default function Home() {
   const onDragEnd = (result: DropResult) => {
     const { source, destination, draggableId } = result;
     if (!destination) return;
-    if (source.droppableId === destination.droppableId) return;
 
+    const srcId = source.droppableId;
+    const dstId = destination.droppableId;
+
+    // ── 같은 리스트 내 순서 변경 (재정렬) ──
+    if (srcId === dstId) {
+      if (srcId === 'todolist-container') {
+        // 할일 목록 순서 변경
+        const currentTodos = useStore.getState().todos;
+        // 현재 화면에 보이는 순서로 정렬된 todo IDs
+        const visibleIds = currentTodos
+          .filter(t => !t.isCompleted)
+          .sort((a, b) => (a.sortOrder ?? 99999) - (b.sortOrder ?? 99999))
+          .map(t => t.id);
+        const newOrder = [...visibleIds];
+        const [moved] = newOrder.splice(source.index, 1);
+        newOrder.splice(destination.index, 0, moved);
+        reorderTodos(newOrder);
+      } else if (srcId === 'sidebar-folders') {
+        // 폴더 순서 변경
+        const currentFolders = useStore.getState().folders;
+        const folderIds = currentFolders
+          .sort((a, b) => (a.sortOrder ?? 99999) - (b.sortOrder ?? 99999))
+          .map(f => f.id);
+        const [moved] = folderIds.splice(source.index, 1);
+        folderIds.splice(destination.index, 0, moved);
+        reorderFolders(folderIds);
+      }
+      return;
+    }
+
+    // ── 다른 리스트 간 이동 ──
     if (destination.droppableId.startsWith('priority-')) {
       const colId = destination.droppableId.replace('priority-', '');
       
@@ -382,13 +461,14 @@ export default function Home() {
             </div>
             )}
 
-            {/* Search */}
+            {/* Search — Cmd+K to focus */}
             {!selectedTodoId && (
               <div className="relative ml-auto hidden md:block w-64 mr-2">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
+                  ref={searchRef}
                   type="search"
-                  placeholder="Search tasks..."
+                  placeholder="Search tasks... (⌘K)"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   className="w-full bg-muted/40 border border-border/40 pl-9 focus-visible:ring-1 focus-visible:ring-primary focus-visible:bg-background h-9 rounded-full text-sm transition-colors"
@@ -454,13 +534,92 @@ export default function Home() {
               >
                 <Settings className="h-[18px] w-[18px] stroke-[2] text-muted-foreground" />
               </Button>
-              <Avatar className="h-8 w-8 ring-2 ring-border cursor-pointer hover:ring-primary transition-all">
-                <AvatarImage src={user?.avatarUrl || `https://api.dicebear.com/7.x/notionists/svg?seed=${user?.id || 'dummy'}`} />
-                <AvatarFallback>{user?.displayName?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
-              </Avatar>
+              {/* 클릭 가능한 사용자 아바타 */}
+              <div className="relative" ref={avatarMenuRef}>
+                <button
+                  onClick={() => setAvatarMenuOpen(v => !v)}
+                  className="block rounded-full ring-2 ring-border hover:ring-primary transition-all"
+                >
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={user?.avatarUrl || `https://api.dicebear.com/7.x/notionists/svg?seed=${user?.id || 'dummy'}`} />
+                    <AvatarFallback>{user?.displayName?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+                  </Avatar>
+                </button>
+                {avatarMenuOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-52 bg-popover border border-border rounded-2xl shadow-xl py-2 z-[200] animate-in fade-in zoom-in-95 duration-150">
+                    {/* 사용자 정보 */}
+                    <div className="px-4 py-2 border-b border-border/40 mb-1">
+                      <p className="text-[13px] font-bold text-foreground truncate">{user?.displayName || 'User'}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">{user?.email || ''}</p>
+                    </div>
+                    <button
+                      className="w-full text-left flex items-center gap-3 px-4 py-2 text-[13px] hover:bg-muted/60 transition-colors text-foreground"
+                      onClick={() => { setAvatarMenuOpen(false); useStore.getState().setIsSettingsOpen(true); }}
+                    >
+                      <Settings className="w-3.5 h-3.5 text-muted-foreground" />
+                      설정
+                    </button>
+                    <div className="border-t border-border/30 my-1" />
+                    <button
+                      className="w-full text-left flex items-center gap-3 px-4 py-2 text-[13px] hover:bg-red-500/10 transition-colors text-red-500"
+                      onClick={async () => {
+                        setAvatarMenuOpen(false);
+                        await supabase.auth.signOut();
+                        window.location.reload();
+                      }}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      로그아웃
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </header>
+
+        {/* ── 글로벌 할일 컨텍스트 메뉴 (⋮ 버튼) ── */}
+        {todoMenu && (() => {
+          const t2 = todos.find(t => t.id === todoMenu.id);
+          if (!t2) return null;
+          return (
+            <>
+              <div className="fixed inset-0 z-[300]" onClick={() => setTodoMenu(null)} />
+              <div
+                className="fixed z-[301] min-w-[180px] bg-popover border border-border rounded-xl shadow-xl py-1.5 animate-in fade-in zoom-in-95 duration-100"
+                style={{ top: todoMenu.y + 4, left: Math.min(todoMenu.x - 180, window.innerWidth - 200) }}
+              >
+                <button
+                  className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-[13px] hover:bg-muted/60 transition-colors text-foreground"
+                  onClick={() => { completeTodos([t2.id], !t2.isCompleted); setTodoMenu(null); }}
+                >
+                  {t2.isCompleted
+                    ? <><X className="w-3.5 h-3.5 text-muted-foreground" /> 완료 취소</>
+                    : <><CheckCheck className="w-3.5 h-3.5 text-green-500" /> 완료 표시</>}
+                </button>
+                <div className="h-px bg-border/40 mx-2 my-1" />
+                {folders.map(f => (
+                  <button
+                    key={f.id}
+                    className="w-full text-left flex items-center gap-2.5 px-3 py-1.5 text-[12px] hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground"
+                    onClick={() => { updateTodo(t2.id, { folderId: f.id }); setTodoMenu(null); }}
+                  >
+                    <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: f.color || '#64748b' }} />
+                    {f.name}
+                  </button>
+                ))}
+                <div className="h-px bg-border/40 mx-2 my-1" />
+                <button
+                  className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-[13px] hover:bg-red-500/10 transition-colors text-red-500"
+                  onClick={() => { deleteTodos([t2.id]); setTodoMenu(null); }}
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> 삭제
+                </button>
+              </div>
+            </>
+          );
+        })()}
+
         <AiReviewBanner />
         <div className={cn("flex-1 overflow-hidden bg-card flex flex-col relative", isShaking && "animate-shake")}>
           {currentView === 'today' ? (

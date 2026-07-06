@@ -7,7 +7,7 @@ import { ScrollArea } from './ui/scroll-area';
 import { Inbox, Calendar, Archive, Folder, Plus, Trash2, CalendarDays, Users, Video, ChevronDown, ChevronRight, CheckCircle, Layers, FolderKanban, FolderOpen } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { useStore } from '../store/useStore';
-import { Droppable } from '@hello-pangea/dnd';
+import { Droppable, Draggable } from '@hello-pangea/dnd';
 
 const CabinetIcon = (props: React.ComponentProps<'svg'>) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
@@ -197,7 +197,7 @@ export function Sidebar({ className, collapsed = false, ...props }: SidebarProps
 
                 {/* Folder list — hidden in collapsed mode */}
                 {!collapsed && item.id === 'unfiled' && isFoldersExpanded && (
-                  <div className="ml-6 pl-2 space-y-1">
+                  <div className="ml-6 pl-2 space-y-0.5">
                     {isAddingFolder && (
                       <div className="py-1">
                         <input
@@ -212,61 +212,94 @@ export function Sidebar({ className, collapsed = false, ...props }: SidebarProps
                         />
                       </div>
                     )}
-                    {folders.map(folder => {
-                      const isActive = currentView === folder.id;
-                      return (
-                        <Droppable key={folder.id} droppableId={`folder-${folder.id}`}>
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.droppableProps}
-                              className={cn(
-                                "rounded-lg transition-colors mb-0.5",
-                                snapshot.isDraggingOver ? "bg-primary/20 ring-1 ring-primary/50" : ""
-                              )}
-                            >
-                              <Button
-                                variant="ghost"
-                                onClick={() => setCurrentView(folder.id)}
-                                onContextMenu={(e) => {
-                                  e.preventDefault();
-                                  setCtxMenu({ x: e.clientX, y: e.clientY, folderId: folder.id });
-                                }}
-                                className={cn(
-                                  "w-full justify-start transition-colors group px-4 h-9 hover:bg-muted/50 rounded-lg",
-                                  isActive ? "font-bold text-foreground" : "font-medium text-muted-foreground hover:text-foreground"
-                                )}
-                              >
-                                <Folder
-                                  className={cn("mr-4 h-4 w-4 stroke-[2]", !folder.color && (isActive ? "text-foreground" : "text-muted-foreground"))}
-                                  style={folder.color ? { color: folder.color } : undefined}
-                                />
-                                <span className="text-[13px] truncate">{folder.name}</span>
-                                {folder.workspaceType === 'project' && (
-                                  <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-indigo-500/15 text-indigo-400 shrink-0 ml-1">🗂</span>
-                                )}
-                                {(() => {
-                                  const liveCount = todos.filter(t => t.folderId === folder.id && !t.isCompleted).length;
-                                  return liveCount > 0 ? (
-                                    <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-border/40 text-foreground">
-                                      {liveCount}
-                                    </span>
-                                  ) : null;
-                                })()}
-                                <div
-                                  role="button"
-                                  onClick={(e) => { e.stopPropagation(); deleteFolder(folder.id); }}
-                                  className="ml-2 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500 transition-opacity"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </div>
-                              </Button>
-                              <div className="hidden">{provided.placeholder}</div>
-                            </div>
-                          )}
-                        </Droppable>
-                      );
-                    })}
+                    {/* 폴더 목록: sidebar-folders Droppable — 순서 변경 + 할일 이동 */}
+                    <Droppable droppableId="sidebar-folders">
+                      {(sidebarProvided) => (
+                        <div ref={sidebarProvided.innerRef} {...sidebarProvided.droppableProps}>
+                          {[...folders]
+                            .sort((a, b) => (a.sortOrder ?? 99999) - (b.sortOrder ?? 99999))
+                            .map((folder, folderIdx) => {
+                              const isActive = currentView === folder.id;
+                              return (
+                                <Draggable key={folder.id} draggableId={`folder-drag-${folder.id}`} index={folderIdx}>
+                                  {(drag, dragSnap) => (
+                                    <div
+                                      ref={drag.innerRef}
+                                      {...drag.draggableProps}
+                                      className={cn(
+                                        "rounded-lg transition-colors mb-0.5",
+                                        dragSnap.isDragging && "opacity-80 shadow-lg ring-1 ring-primary/30 bg-card"
+                                      )}
+                                    >
+                                      {/* 드래그 핸들: 폴더 아이콘 부분에만 */}
+                                      <Droppable droppableId={`folder-${folder.id}`}>
+                                        {(provided, snapshot) => (
+                                          <div
+                                            ref={provided.innerRef}
+                                            {...provided.droppableProps}
+                                            className={cn(
+                                              "rounded-lg transition-colors",
+                                              snapshot.isDraggingOver ? "bg-primary/20 ring-1 ring-primary/50" : ""
+                                            )}
+                                          >
+                                            <Button
+                                              variant="ghost"
+                                              onClick={() => setCurrentView(folder.id)}
+                                              onContextMenu={(e) => {
+                                                e.preventDefault();
+                                                setCtxMenu({ x: e.clientX, y: e.clientY, folderId: folder.id });
+                                              }}
+                                              className={cn(
+                                                "w-full justify-start transition-colors group px-4 h-9 hover:bg-muted/50 rounded-lg",
+                                                isActive ? "font-bold text-foreground" : "font-medium text-muted-foreground hover:text-foreground"
+                                              )}
+                                            >
+                                              {/* 드래그 핸들 표시역 (= 다이아모드 아이콘) */}
+                                              <span
+                                                {...drag.dragHandleProps}
+                                                className="mr-2 text-muted-foreground/30 hover:text-muted-foreground cursor-grab active:cursor-grabbing flex-shrink-0"
+                                                onClick={e => e.stopPropagation()}
+                                                title="드래그하여 순서 변경"
+                                              >
+                                                ⠿
+                                              </span>
+                                              <Folder
+                                                className={cn("mr-2 h-4 w-4 stroke-[2]", !folder.color && (isActive ? "text-foreground" : "text-muted-foreground"))}
+                                                style={folder.color ? { color: folder.color } : undefined}
+                                              />
+                                              <span className="text-[13px] truncate">{folder.name}</span>
+                                              {folder.workspaceType === 'project' && (
+                                                <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-indigo-500/15 text-indigo-400 shrink-0 ml-1">🗂</span>
+                                              )}
+                                              {(() => {
+                                                const liveCount = todos.filter(t => t.folderId === folder.id && !t.isCompleted).length;
+                                                return liveCount > 0 ? (
+                                                  <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-border/40 text-foreground">
+                                                    {liveCount}
+                                                  </span>
+                                                ) : null;
+                                              })()}
+                                              <div
+                                                role="button"
+                                                onClick={(e) => { e.stopPropagation(); deleteFolder(folder.id); }}
+                                                className="ml-2 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500 transition-opacity"
+                                              >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                              </div>
+                                            </Button>
+                                            <div className="hidden">{provided.placeholder}</div>
+                                          </div>
+                                        )}
+                                      </Droppable>
+                                    </div>
+                                  )}
+                                </Draggable>
+                              );
+                            })}
+                          {sidebarProvided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
                   </div>
                 )}
               </div>
