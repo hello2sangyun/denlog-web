@@ -476,17 +476,13 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   reorderTodos: async (orderedIds) => {
-    // 낙관적 업데이트: 로컬 순서 즉시 반영
-    set(state => {
-      const idxMap = new Map(orderedIds.map((id, i) => [id, i]));
-      return {
-        todos: [...state.todos].sort((a, b) => {
-          const ai = idxMap.has(a.id) ? idxMap.get(a.id)! : 99999;
-          const bi = idxMap.has(b.id) ? idxMap.get(b.id)! : 99999;
-          return ai - bi;
-        }).map((t, i) => idxMap.has(t.id) ? { ...t, sortOrder: i } : t),
-      };
-    });
+    // 낙관적 업데이트: orderedIds에 있는 항목만 sortOrder 재할당, 나머지 유지
+    set(state => ({
+      todos: state.todos.map(t => {
+        const idx = orderedIds.indexOf(t.id);
+        return idx !== -1 ? { ...t, sortOrder: idx } : t;
+      }),
+    }));
     // Supabase 배치 저장
     const updates = orderedIds.map((id, i) => ({ id, sort_order: i }));
     for (const u of updates) {

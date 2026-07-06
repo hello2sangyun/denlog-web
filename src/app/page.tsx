@@ -31,6 +31,7 @@ import { useStore } from '@/store/useStore';
 import { useTheme } from 'next-themes';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 import { NotificationPanel } from '@/components/NotificationPanel';
+import { isToday } from 'date-fns';
 
 // ── Window width hook ─────────────────────────────────────────────────────
 function useWindowWidth() {
@@ -232,11 +233,27 @@ export default function Home() {
     // ── 같은 리스트 내 순서 변경 (재정렬) ──
     if (srcId === dstId) {
       if (srcId === 'todolist-container') {
-        const currentTodos = useStore.getState().todos;
-        const visibleIds = currentTodos
-          .filter(t => !t.isCompleted)
-          .sort((a, b) => (a.sortOrder ?? 99999) - (b.sortOrder ?? 99999))
-          .map(t => t.id);
+        const { todos: allTodos, currentView } = useStore.getState();
+
+        // TodoList와 동일한 필터 적용
+        const visibleTodos = allTodos.filter(t => {
+          if (t.isCompleted) return false;
+          if ((t as any).aiDeckPending || (t as any).aiDeckDismissedAt) return false;
+          if (currentView === 'all') return true;
+          if (currentView === 'unfiled' || currentView === 'inbox') {
+            return !t.folderId || t.folderId === 'inbox' || t.folderId === 'none';
+          }
+          if (currentView === 'today') {
+            const due = t.dueDate ? new Date(t.dueDate) : null;
+            const isDueToday = due ? isToday(due) : false;
+            const isOverdue = due ? due < new Date(new Date().setHours(0, 0, 0, 0)) : false;
+            return isDueToday || isOverdue;
+          }
+          if (currentView === 'upcoming') return true;
+          return t.folderId === currentView;
+        }).sort((a, b) => (a.sortOrder ?? 99999) - (b.sortOrder ?? 99999));
+
+        const visibleIds = visibleTodos.map(t => t.id);
         const newOrder = [...visibleIds];
         const [moved] = newOrder.splice(source.index, 1);
         newOrder.splice(destination.index, 0, moved);
