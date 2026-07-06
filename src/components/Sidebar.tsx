@@ -7,7 +7,6 @@ import { ScrollArea } from './ui/scroll-area';
 import { Inbox, Calendar, Archive, Folder, Plus, Trash2, CalendarDays, Users, Video, ChevronDown, ChevronRight, CheckCircle, Layers, FolderKanban, FolderOpen } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { useStore } from '../store/useStore';
-import { Droppable } from '@hello-pangea/dnd';
 
 const CabinetIcon = (props: React.ComponentProps<'svg'>) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
@@ -127,75 +126,60 @@ export function Sidebar({ className, collapsed = false, ...props }: SidebarProps
           <div className="space-y-0.5">
             {navItems.map(item => (
               <div key={item.id} className="space-y-1">
-                <Droppable droppableId={`folder-${item.id}`} isDropDisabled={item.id !== 'unfiled'}>
-                  {(provided, snapshot) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
+                <div className="rounded-lg mb-1">
+                  {collapsed ? (
+                    <button
+                      title={item.label}
+                      onClick={() => setCurrentView(item.id)}
                       className={cn(
-                        "rounded-lg transition-colors mb-1",
-                        snapshot.isDraggingOver ? "bg-primary/10 ring-1 ring-primary/50" : ""
+                        "w-full flex items-center justify-center h-10 rounded-lg transition-colors relative group",
+                        currentView === item.id
+                          ? "bg-primary/10 text-primary"
+                          : "text-muted-foreground hover:text-foreground hover:bg-background/60"
                       )}
                     >
-                      {collapsed ? (
-                        // Collapsed: icon-only nav button with tooltip
-                        <button
-                          title={item.label}
-                          onClick={() => setCurrentView(item.id)}
-                          className={cn(
-                            "w-full flex items-center justify-center h-10 rounded-lg transition-colors relative group",
-                            currentView === item.id
-                              ? "bg-primary/10 text-primary"
-                              : "text-muted-foreground hover:text-foreground hover:bg-background/60"
-                          )}
-                        >
-                          <item.icon className={cn("h-5 w-5 stroke-[2]", (item as any).color && currentView !== item.id ? (item as any).color : "")} />
-                          {/* Tooltip */}
-                          <span className="absolute left-full ml-2 px-2 py-1 text-xs font-semibold bg-popover text-popover-foreground border border-border rounded-md shadow-md opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-opacity">
-                            {item.label}
-                          </span>
-                          {/* Active dot */}
-                          {currentView === item.id && (
-                            <span className="absolute right-1 top-1/2 -translate-y-1/2 w-1 h-4 rounded-full bg-primary" />
-                          )}
-                        </button>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          onClick={() => setCurrentView(item.id)}
-                          className={cn(
-                            "w-full justify-start transition-colors group px-4 h-10 hover:bg-transparent",
-                            currentView === item.id
-                              ? "font-bold text-foreground"
-                              : "font-medium text-muted-foreground hover:text-foreground"
-                          )}
-                        >
-                          <item.icon className={cn("mr-4 h-5 w-5 stroke-[2]", (item as any).color || "text-muted-foreground")} />
-                          <span className="text-[14px]">{item.label}</span>
-                          {item.id === 'unfiled' && (
-                            <div className="ml-auto flex items-center gap-1">
-                              <div
-                                role="button"
-                                onClick={(e) => { e.stopPropagation(); setIsAddingFolder(true); }}
-                                className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary transition-opacity p-1"
-                              >
-                                <Plus className="w-4 h-4" />
-                              </div>
-                              <div
-                                role="button"
-                                onClick={(e) => { e.stopPropagation(); setIsFoldersExpanded(!isFoldersExpanded); }}
-                                className="text-muted-foreground/50 hover:text-muted-foreground transition-colors p-1"
-                              >
-                                {isFoldersExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                              </div>
-                            </div>
-                          )}
-                        </Button>
+                      <item.icon className={cn("h-5 w-5 stroke-[2]", (item as any).color && currentView !== item.id ? (item as any).color : "")} />
+                      <span className="absolute left-full ml-2 px-2 py-1 text-xs font-semibold bg-popover text-popover-foreground border border-border rounded-md shadow-md opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-opacity">
+                        {item.label}
+                      </span>
+                      {currentView === item.id && (
+                        <span className="absolute right-1 top-1/2 -translate-y-1/2 w-1 h-4 rounded-full bg-primary" />
                       )}
-                      <div className="hidden">{provided.placeholder}</div>
-                    </div>
+                    </button>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      onClick={() => setCurrentView(item.id)}
+                      className={cn(
+                        "w-full justify-start transition-colors group px-4 h-10 hover:bg-transparent",
+                        currentView === item.id
+                          ? "font-bold text-foreground"
+                          : "font-medium text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <item.icon className={cn("mr-4 h-5 w-5 stroke-[2]", (item as any).color || "text-muted-foreground")} />
+                      <span className="text-[14px]">{item.label}</span>
+                      {item.id === 'unfiled' && (
+                        <div className="ml-auto flex items-center gap-1">
+                          <div
+                            role="button"
+                            onClick={(e) => { e.stopPropagation(); setIsAddingFolder(true); }}
+                            className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary transition-opacity p-1"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </div>
+                          <div
+                            role="button"
+                            onClick={(e) => { e.stopPropagation(); setIsFoldersExpanded(!isFoldersExpanded); }}
+                            className="text-muted-foreground/50 hover:text-muted-foreground transition-colors p-1"
+                          >
+                            {isFoldersExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                          </div>
+                        </div>
+                      )}
+                    </Button>
                   )}
-                </Droppable>
+                </div>
 
                 {/* Folder list — hidden in collapsed mode */}
                 {!collapsed && item.id === 'unfiled' && isFoldersExpanded && (
