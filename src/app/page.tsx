@@ -222,7 +222,7 @@ export default function Home() {
     return folder ? folder.name : t('nav.inbox');
   };
 
-  const onDragEnd = (result: DropResult) => {
+  const onDragEnd = async (result: DropResult) => {
     const { source, destination, draggableId } = result;
     if (!destination) return;
 
@@ -232,9 +232,7 @@ export default function Home() {
     // ── 같은 리스트 내 순서 변경 (재정렬) ──
     if (srcId === dstId) {
       if (srcId === 'todolist-container') {
-        // 할일 목록 순서 변경
         const currentTodos = useStore.getState().todos;
-        // 현재 화면에 보이는 순서로 정렬된 todo IDs
         const visibleIds = currentTodos
           .filter(t => !t.isCompleted)
           .sort((a, b) => (a.sortOrder ?? 99999) - (b.sortOrder ?? 99999))
@@ -244,7 +242,6 @@ export default function Home() {
         newOrder.splice(destination.index, 0, moved);
         reorderTodos(newOrder);
       } else if (srcId === 'sidebar-folders') {
-        // 폴더 순서 변경
         const currentFolders = useStore.getState().folders;
         const folderIds = currentFolders
           .sort((a, b) => (a.sortOrder ?? 99999) - (b.sortOrder ?? 99999))
@@ -256,11 +253,41 @@ export default function Home() {
       return;
     }
 
+    // ── TodayBlockView: TOP3 배정 ──
+    if (dstId.startsWith('top3-')) {
+      const rank = parseInt(dstId.split('-')[1]) as 1|2|3;
+      const allTodos = useStore.getState().todos;
+      const existing = allTodos.find(t => t.top3Rank === rank && t.id !== draggableId);
+      if (existing) {
+        const current = allTodos.find(t => t.id === draggableId);
+        await updateTodo(existing.id, { top3Rank: current?.top3Rank ?? null } as any);
+      }
+      await updateTodo(draggableId, { top3Rank: rank, timeBlockSlot: null } as any);
+      return;
+    }
+
+    // ── TodayBlockView: 타임블록 배정 ──
+    if (dstId.startsWith('block-')) {
+      const slot = parseInt(dstId.split('-')[1]);
+      await updateTodo(draggableId, { timeBlockSlot: slot, top3Rank: null } as any);
+      return;
+    }
+
+    // ── TodayBlockView: 미배정/오버듀로 이동 ──
+    if (dstId === 'unassigned' || dstId === 'overdue') {
+      await updateTodo(draggableId, { timeBlockSlot: null, top3Rank: null } as any);
+      return;
+    }
+
+    // ── CalendarView: 주간/월간 날짜 셀 드롭 ──
+    if (dstId.startsWith('week-') || dstId.startsWith('cal-')) {
+      // CalendarView 내부에서 처리 (날짜 데이터 필요) — 무시
+      return;
+    }
+
     // ── 다른 리스트 간 이동 ──
-    if (destination.droppableId.startsWith('priority-')) {
-      const colId = destination.droppableId.replace('priority-', '');
-      
-      // Upcoming board: date-based columns → block drag, show info toast
+    if (dstId.startsWith('priority-')) {
+      const colId = dstId.replace('priority-', '');
       const upcomingCols = ['today', 'tomorrow', 'thisWeek', 'nextWeek', 'later'];
       if (upcomingCols.includes(colId)) {
         const { language } = useStore.getState();
@@ -270,14 +297,13 @@ export default function Home() {
         if (dragToastTimer.current) clearTimeout(dragToastTimer.current);
         setDragToast(msg);
         dragToastTimer.current = setTimeout(() => setDragToast(null), 4000);
-        return; // ← block actual move
+        return;
       } else {
-        // Priority board: high/medium/low/none
         const newPriority = colId === 'none' ? null : colId as any;
         updateTodo(draggableId, { priority: newPriority });
       }
-    } else if (destination.droppableId.startsWith('folder-')) {
-      const folderIdStr = destination.droppableId.replace('folder-', '');
+    } else if (dstId.startsWith('folder-')) {
+      const folderIdStr = dstId.replace('folder-', '');
       const newFolderId = (folderIdStr === 'unfiled' || folderIdStr === 'inbox') ? null : folderIdStr;
       updateTodo(draggableId, { folderId: newFolderId });
     }
@@ -312,7 +338,7 @@ export default function Home() {
   }
 
   return (
-    <DragDropContext onDragEnd={onDragEnd}>
+    <>
       {/* Drag Info Toast */}
       {dragToast && (
         <div
@@ -330,18 +356,20 @@ export default function Home() {
       )}
       <div className="flex h-screen w-full overflow-hidden bg-background font-sans text-foreground">
 
-        {/* ── Left Sidebar: full / collapsed / hidden ── */}
+        {/* ── Left Sidebar: Separate DragDropContext for folder reorder ── */}
         {!sidebarHidden && (
           <>
-            <Sidebar
-              collapsed={sidebarCollapsed}
-              style={!sidebarCollapsed ? { width: `${leftSidebarWidth}px` } : undefined}
-              className={cn(
-                "flex-shrink-0 border-r",
-                !isLeftDragging && "transition-all duration-300",
-                sidebarCollapsed && "w-[56px]"
-              )}
-            />
+            <DragDropContext onDragEnd={onDragEnd}>
+              <Sidebar
+                collapsed={sidebarCollapsed}
+                style={!sidebarCollapsed ? { width: `${leftSidebarWidth}px` } : undefined}
+                className={cn(
+                  "flex-shrink-0 border-r",
+                  !isLeftDragging && "transition-all duration-300",
+                  sidebarCollapsed && "w-[56px]"
+                )}
+              />
+            </DragDropContext>
             {!sidebarCollapsed && (
               <div
                 className="w-1.5 cursor-col-resize hover:bg-primary/50 transition-colors bg-border/40 shrink-0 z-30"
@@ -623,20 +651,22 @@ export default function Home() {
         <AiReviewBanner />
         <div className={cn("flex-1 overflow-hidden bg-card flex flex-col relative", isShaking && "animate-shake")}>
           {currentView === 'today' ? (
-            isBlockMode ? <TodayBlockView /> : <TodoList />
+            // TodayBlockView has its own DragDropContext — render outside main context
+            isBlockMode ? <TodayBlockView /> : <DragDropContext onDragEnd={onDragEnd}><TodoList /></DragDropContext>
           ) : currentView === 'upcoming' ? (
-            viewMode === 'board' ? <KanbanBoard /> : <UpcomingView />
+            <DragDropContext onDragEnd={onDragEnd}>
+              {viewMode === 'board' ? <KanbanBoard /> : <UpcomingView />}
+            </DragDropContext>
           ) : currentView === 'people' ? (
             <PeopleView />
           ) : currentView === 'cabinet' || currentView === 'meetings' ? (
             <CabinetView />
           ) : (() => {
-            // 폴더 뷰일 때 프로젝트 폴더면 ProjectDashboard 렌더링
             const activeFolder = folders.find(f => f.id === currentView);
             if (activeFolder?.workspaceType === 'project') {
               return <ProjectDashboard folder={activeFolder} />;
             }
-            return viewMode === 'board' ? <KanbanBoard /> : <TodoList />;
+            return <DragDropContext onDragEnd={onDragEnd}>{viewMode === 'board' ? <KanbanBoard /> : <TodoList />}</DragDropContext>;
           })()
           }
         </div>
@@ -759,6 +789,6 @@ export default function Home() {
       {(!user && !isLoading) && <LoginOverlay />}
       <EventPopupModal />
       </div>
-    </DragDropContext>
+    </>
   );
 }

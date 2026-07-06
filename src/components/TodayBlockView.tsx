@@ -325,7 +325,6 @@ export function TodayBlockView() {
         <CalendarView todos={blockViewTodos} defaultSub="week" />
       )}
 
-      {/* ── Blocks 모드 ── */}
       {plannerMode === 'blocks' && (
     <DragDropContext onDragEnd={handleDragEnd}>
       {/* ── Main layout: mobile=vertical, desktop=horizontal 2-column ── */}
